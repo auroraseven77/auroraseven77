@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/auroraseven77/auroraseven77/osint-toolkit/schema/observation.schema.json",
   "title": "TUU OSINT Observation",
   "type": "object",
   "additionalProperties": false,
@@ -9,11 +10,11 @@
     "query": {"type": "string"},
     "timestamp": {"type": "string", "format": "date-time"},
     "target": {"type": "string", "minLength": 1},
-    "entity_type": {"type": "string", "enum": ["domain", "subdomain", "ip", "url", "certificate", "technology", "username", "email", "organization", "other"]},
-    "value": {"type": "string", "minLength": 1},
+    "entity_type": {"type": "string", "enum": ["dns", "http_header", "tls_cert", "robots", "ip", "asn", "identity", "evidence"]},
+    "value": {"type": "string"},
     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-    "evidence_url": {"type": "string", "format": "uri"},
-    "hash": {"type": "string"},
-    "status": {"type": "string", "enum": ["observed", "verified", "disputed", "expired"]}
+    "evidence_url": {"type": ["string", "null"], "format": "uri"},
+    "hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "status": {"type": "string", "enum": ["ok", "error", "skipped"]}
   }
 }
