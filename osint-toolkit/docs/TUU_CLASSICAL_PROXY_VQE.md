@@ -20,6 +20,22 @@ Until a public, explicit TUU Hamiltonian/Lagrangian is supplied and justified, e
 
 Numbers generated without actually executing the simulator MUST NOT be described as `SIMULATION`.
 
+## Lifecycle and non-automatic transitions
+
+Epistemic status MUST advance only when the corresponding evidence is produced. There is no automatic transition between stages:
+
+```text
+DECLARED_CONFIGURATION
+        ↓
+      MOCK
+        ↓
+   SIMULATION
+        ↓
+   EXPERIMENT
+```
+
+A declared topology is not hardware evidence. A mock result is not a simulation result. A simulation result is not an experiment. An `LLM_REASONING` result never enters this chain merely because it contains numerical values.
+
 ## Proxy model
 
 The initial proxy may use a small, established model such as a Kitaev toric-code instance or an Ising spin model with explicitly declared long-range couplings.
@@ -72,14 +88,14 @@ runs/<run_id>/
 
 ## Baseline discipline
 
-The proxy must compare against a declared baseline before any claim of improvement. Examples include:
+The proxy must compare against a declared baseline before any claim of improvement. For a small proxy, an exact classical reference is expected and is a correctness/reproducibility control, not something that must be outperformed to justify running the test. Suitable baselines include:
 
 - exact diagonalization for a small instance;
 - a different ansatz under the same Hamiltonian;
 - a fixed optimizer budget;
 - a classical reference solver appropriate to the model.
 
-Speedup, residual error, fidelity, or convergence improvements MUST be reported together with the baseline definition and uncertainty/error information where applicable.
+The purpose of the first proxy stage is to establish correctness, convergence and reproducibility. It MUST NOT require an alleged quantum advantage as a prerequisite. Any claim of speedup, residual-error improvement, fidelity improvement or other performance gain requires a declared baseline and uncertainty/error information where applicable. A statement that a VQE result is “not classically achievable” is not a general acceptance criterion for this proxy stage.
 
 ## Long-range correlation
 
@@ -95,6 +111,73 @@ A phrase such as "long-range entanglement correlation" is insufficient by itself
 8. threshold or statistical decision rule.
 
 If these are not frozen before execution, the result is exploratory and MUST NOT be used as a confirmatory claim.
+
+## Backend contract testing
+
+The mock Device Gateway path MUST be tested through explicit contract invariants before any real-backend integration is attempted. At minimum:
+
+- `shots` is an integer satisfying the backend's declared domain (for a sampling execution, normally `shots >= 0` or a stricter documented lower bound);
+- `1 <= n_qubits <= max_qubits` for every submitted circuit;
+- when topology is declared `all-to-all`, every distinct pair `(i,j)` satisfies `connected(i,j) == True` **within the declared topology model**;
+- virtual-to-physical mapping is a bijection for the qubits actually used;
+- compilation rejects unsupported gates or malformed OpenQASM rather than silently accepting them;
+- execution returns a stable job identifier/handle and a schema-valid result;
+- result metadata explicitly identifies `MOCK` when mock execution is used;
+- no mock result contains metadata implying hardware execution or calibration provenance;
+- error states are deterministic and machine-checkable.
+
+The lifecycle MUST define job states explicitly, for example:
+
+```text
+CREATED → RUNNING → COMPLETED
+                   ↘ FAILED
+CREATED/RUNNING → CANCELLED
+```
+
+`cancel_job`/`cancel()` behavior for terminal states MUST be specified by contract. Cancelling an already `COMPLETED` job MUST NOT be assumed to be valid: the implementation may define it as a no-op, a controlled error, or another explicit terminal-state response. Likewise, `get_result()` on a non-terminal job must have a defined behavior.
+
+## pytket / Quantinuum compatibility boundary
+
+Similarity of method names is **not** evidence of compatibility with `pytket-quantinuum` or another Quantinuum SDK.
+
+Compatibility MUST be demonstrated against a pinned, explicitly identified SDK/framework version and its actual contracts, including where applicable:
+
+- circuit compilation and supported operations;
+- backend capability predicates;
+- submission/process semantics;
+- job handle type and lifecycle;
+- result retrieval format;
+- cancellation semantics;
+- backend/device metadata;
+- error and retry behavior.
+
+Until those tests are executed against the target version, the repository MUST describe the adapter as **interface-shaped / intended integration**, not as proven SDK compatibility.
+
+## Declared topology boundary
+
+A JSON topology describing a complete graph is a mathematical model of the declared configuration. For `n` qubits, the number of unordered edges is:
+
+\[
+E = \binom{n}{2} = \frac{n(n-1)}{2}.
+\]
+
+Thus a declared 56-node complete graph contains 1540 unordered edges, while a declared 20-node complete graph contains 190. This verifies the internal graph arithmetic only.
+
+All-to-all connectivity, if independently verified for the actual backend, can eliminate connectivity-driven SWAP routing for pairs that are simultaneously addressable. It does **not** by itself establish that arbitrary OpenQASM3 is directly executable: native-gate decomposition, compilation, scheduling, transport/motion constraints, calibration, parallelism and backend-specific predicates still apply.
+
+`identity mapping` is therefore valid as a graph-theoretic bijection under a declared complete graph, but its operational validity MUST be verified against the actual backend/compiler contract.
+
+## Fidelity/error model boundary
+
+For exploratory sensitivity analysis under independent identical two-qubit error probability `p` across `N` gates, the simple model
+
+\[
+F_{est} \approx (1-p)^N
+\]
+
+may be used as an **analytical model only**. It is not a hardware fidelity measurement and MUST NOT be substituted for measured circuit fidelity.
+
+Real execution may involve correlated errors, SPAM/readout error, decoherence, crosstalk, transport/motion effects, compilation changes, leakage and other mechanisms. Per-gate averages cannot be extrapolated to a deep VQE circuit without an explicit model and uncertainty analysis.
 
 ## TUU gate
 
