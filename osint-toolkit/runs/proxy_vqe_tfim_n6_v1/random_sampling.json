@@ -1,0 +1,20 @@
+{
+  "stage": "SIMULATION",
+  "model_scope": "PROXY",
+  "method": "random_sampling_no_optimizer",
+  "N": 6,
+  "layers": 2,
+  "periodic_cz": false,
+  "n_params": 12,
+  "n_samples": 10000,
+  "seed": 42,
+  "E_exact": -7.727406610312544,
+  "E_best_random": -5.667133392803955,
+  "E_mean_random": 0.023636086021833504,
+  "E_std_random": 1.4677901872079149,
+  "E_minus_2sigma": -8.602713767219786,
+  "reference_VQE_E": -7.28084,
+  "best_theta_sha256": "10996d04cba39e37a30610ff12583357a1d890dd26fab670f522daf2d7d714e5",
+  "comparison_status": "PROVENANCE_UNRESOLVED",
+  "comparison_note": "The probe exactly reproduces the stated reconstructed 2-layer Ry + linear-CZ ansatz and the declared TFIM Hamiltonian. The original VQE source was not present in the repository, so this result cannot prove that the executed VQE used the same implementation."
+}
