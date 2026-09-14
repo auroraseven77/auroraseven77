@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TUU OSINT Observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "timestamp", "target", "entity_type", "value", "confidence", "status"],
+  "properties": {
+    "source": {"type": "string", "minLength": 1},
+    "query": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "target": {"type": "string", "minLength": 1},
+    "entity_type": {"type": "string", "enum": ["domain", "subdomain", "ip", "url", "certificate", "technology", "username", "email", "organization", "other"]},
+    "value": {"type": "string", "minLength": 1},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "evidence_url": {"type": "string", "format": "uri"},
+    "hash": {"type": "string"},
+    "status": {"type": "string", "enum": ["observed", "verified", "disputed", "expired"]}
+  }
+}
