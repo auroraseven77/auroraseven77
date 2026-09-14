@@ -1,0 +1,41 @@
+{
+  "run_id": "proxy_vqe_tfim_n6_v1",
+  "stage": "SIMULATION",
+  "model_scope": "PROXY",
+  "method": "classical VQE",
+  "ansatz": "hardware-efficient: 2 layers Ry + linear CZ",
+  "parameter_count": 12,
+  "optimizer": "COBYLA",
+  "seed": 42,
+  "maxiter": 200,
+  "iterations": 147,
+  "converged": false,
+  "hamiltonian": {
+    "model": "1D TFIM",
+    "n_qubits": 6,
+    "J": 1.0,
+    "h": 1.0,
+    "boundary_conditions": "periodic"
+  },
+  "results": {
+    "vqe_energy": -7.28084,
+    "exact_energy": -7.72741,
+    "absolute_error": 0.4466,
+    "relative_error_percent": 5.78,
+    "observables": {
+      "Z0": 0.9267,
+      "X0": 0.3416,
+      "Z0Z1": 0.8665
+    },
+    "wall_time_seconds": 6.10,
+    "exact_reference_wall_time_seconds": 0.024
+  },
+  "evidence_boundary": {
+    "tuu_validated": false,
+    "hardware_experiment": false,
+    "experimental_evidence": false,
+    "claim_scope": "proxy infrastructure validation only"
+  },
+  "source_revision": "to-be-recorded-at-artifact-ingestion",
+  "artifact_sha256": "7b60fb623b7a43909e917c7ba88cb57b08e39fb4a3dab4fddec1a738f514ad51"
+}
