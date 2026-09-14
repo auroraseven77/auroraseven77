@@ -107,6 +107,20 @@ confidence_composite + risk
 
 O cálculo de risco no MVP é deliberadamente heurístico e **não representa uma conclusão de segurança**. Ele serve como sinal de triagem. O relatório também marca explicitamente `ai_authority: advisory_only`.
 
+## Protocolo de validação quântica
+
+A ponte entre o pré-processamento clássico e a hipótese quântica agora possui um protocolo explícito em [`docs/TUU_QUANTUM_VALIDATION_PROTOCOL.md`](docs/TUU_QUANTUM_VALIDATION_PROTOCOL.md).
+
+A regra é separar obrigatoriamente quatro classes de informação:
+
+```text
+INPUT → ANALYTICAL → SIMULATION → EXPERIMENT
+```
+
+Resultados de raciocínio ou simulação **não são evidência de hardware**. Um resultado só pode ser classificado como `EXPERIMENT` quando houver backend identificado, timestamp, circuito/commit, qubits usados, profundidade, gates, shots, protocolo de medição, parâmetros do experimento, artefatos preservados e hashes SHA-256, além de baseline e incerteza estatística.
+
+O protocolo também impede que `56 qubits físicos` seja automaticamente interpretado como `56 qubits lógicos` e exige que o overhead de codificação/ancillas seja explicitado.
+
 ## Arquitetura ampliada
 
 ```text
@@ -160,6 +174,8 @@ Evidence Store
 Correlation Engine
    ↓
 AI Analysis (advisory only)
+   ↓
+Quantum Validation Protocol
    ↓
 Risk / Confidence
    ↓
