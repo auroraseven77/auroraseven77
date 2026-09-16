@@ -108,6 +108,20 @@ A IA pode atuar como **assistente de análise**, ajudando a resumir resultados, 
 
 ---
 
+## 🌌 Aurora — Síntese Cognitiva por Geometria Vetorial
+
+Registro do artigo **“Aurora: A Paradigm of Cognitive Synthesis Through Vectorial Geometry”**, publicado em 12 de maio de 2025.
+
+O texto apresenta uma arquitetura conceitual baseada em **vetores fractais, TriGate, superposição de hipóteses, coerência contextual, estados estáveis, memória modular e síntese hierárquica**.
+
+🔗 **Artigo original:** [Medium — Aurora: A Paradigm of Cognitive Synthesis Through Vectorial Geometry](https://medium.com/@pab.man.alvarez/aurora-a-paradigm-of-cognitive-synthesis-through-vectorial-geometry-3a6bab5ef68e)
+
+📄 **Registro técnico no repositório:** [docs/aurora-vectorial-geometry.md](docs/aurora-vectorial-geometry.md)
+
+> **Nota:** o artigo é registrado aqui como proposta/arquitetura conceitual. As alegações de desempenho e capacidades cognitivas exigem implementação reproduzível, benchmarks, ablações e validação independente.
+
+---
+
 ## 📈 Estatísticas GitHub
 
 <div align="center">
