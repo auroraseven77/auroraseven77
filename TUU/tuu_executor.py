@@ -3,7 +3,10 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from .tuu_policy import AuthorizedRequest, PolicyDecision
+try:
+    from .tuu_policy import AuthorizedRequest, PolicyDecision
+except ImportError:
+    from tuu_policy import AuthorizedRequest, PolicyDecision
 
 
 @dataclass(frozen=True)
