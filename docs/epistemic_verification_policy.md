@@ -71,7 +71,7 @@ Para que a telemetria receba validação sintática, os artefatos de execução 
 | 3. Timestamp      : RFC 3339 UTC com janela de validade |t_now - t_exec| <= 500ms   |
 | 4. HardwareID     : Identificador único do nó/controlador QPU                      |
 | 5. Attestation    : Certificate Chain (TPM 2.0 Quote / HSM / QPU Controller)     |
-| 6. Payload        : JCS RFC 8787 Canonical JSON (Raw Telemetry Data)              |
+| 6. Payload        : JCS RFC 8785 Canonical JSON (Raw Telemetry Data)              |
 | 7. Signature      : Sign(K_sign, SHA-256(JobID || Nonce || Timestamp || ... ))     |
 +-----------------------------------------------------------------------------------+
 ```
