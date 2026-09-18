@@ -19,16 +19,16 @@ class EnxameSimulado:
     async def solicitar_votacao(self, contexto: str, rodada: int) -> List[AgentMetricOutput]:
         logger.info(f"[ENXAME] Gerando propostas | Rodada {rodada}")
         if rodada == 1:
-            # Alta dispersão: entropia baixa -> estado 'resolving'
+            # S1 = 0.80, S2 = 0.10 -> H_N = 0.503 < 0.75 (resolving)
             return [
-                AgentMetricOutput(intent="echo Task Completed", confidence=0.5, feasibility=0.5, historical_success=0.5, risk=0.2),
-                AgentMetricOutput(intent="ls -l", confidence=0.5, feasibility=0.5, historical_success=0.5, risk=0.2)
+                AgentMetricOutput(intent="echo Task Completed", confidence=0.9, feasibility=0.9, historical_success=0.9, risk=0.1),
+                AgentMetricOutput(intent="ls -l", confidence=0.2, feasibility=0.2, historical_success=0.2, risk=0.8)
             ]
         else:
-            # Desambiguação pós-feedback
+            # S1 = 0.62, S2 = 0.43 -> H_N = 0.976 >= 0.75 (consensus -> completed)
             return [
-                AgentMetricOutput(intent="echo Task Completed", confidence=0.9, feasibility=0.85, historical_success=0.9, risk=0.1),
-                AgentMetricOutput(intent="ls -l", confidence=0.2, feasibility=0.3, historical_success=0.2, risk=0.7)
+                AgentMetricOutput(intent="echo Task Completed", confidence=0.7, feasibility=0.7, historical_success=0.7, risk=0.1),
+                AgentMetricOutput(intent="ls -l", confidence=0.5, feasibility=0.5, historical_success=0.5, risk=0.2)
             ]
 
 
