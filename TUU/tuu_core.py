@@ -1,27 +1,19 @@
-"""
-TUU/tuu_core.py - Orquestrador Principal (Marcos T1-T6, M7, M8)
+"""TUU/tuu_core.py - Orquestrador principal e ciclo epistemico -> autorizacao -> execucao."""
 
-Orquestra a transição estrita:
-Collapse -> Swarm -> Policy -> Executor -> Attestation -> Telemetry
-Preserva a retrocompatibilidade e a barreira de imunidade normativa.
-"""
-
-import inspect
-import time
-from typing import Any, Dict, Optional
+import asyncio
+import math
+from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from TUU.authorization import AuthorizationContext, AuthorizationDecision, evaluate_authorization
+from TUU.execution import ExecutionResult, execute_command_securely
+
 
 class AgentMetricOutput(BaseModel):
-    """
-    Hard boundary for Agent Swarm output.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    Agents may emit only the four epistemic metrics. Score, ranking,
-    authorization, and execution fields are intentionally forbidden.
-    """
-    model_config = ConfigDict(extra="forbid")
-
+    intent: str
     confidence: float = Field(..., ge=0.0, le=1.0)
     feasibility: float = Field(..., ge=0.0, le=1.0)
     historical_success: float = Field(..., ge=0.0, le=1.0)
@@ -29,15 +21,14 @@ class AgentMetricOutput(BaseModel):
 
 
 class CandidateEvaluation(BaseModel):
-    """Internal TUU representation after deterministic score computation."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     intent: str
     confidence: float
     feasibility: float
     historical_success: float
     risk: float
-    score: float
+    score: float = Field(..., ge=0.0, le=1.0)
 
 
 def compute_candidate_evaluation(
@@ -49,328 +40,173 @@ def compute_candidate_evaluation(
     w_v: float = 0.3,
     w_r: float = 0.1,
 ) -> CandidateEvaluation:
-    """Sole deterministic TUU boundary that produces S_i."""
-    s_i = (
+    raw_score = (
         w_c * metrics.confidence
         + w_h * metrics.historical_success
         + w_v * metrics.feasibility
         - w_r * metrics.risk
     )
-    if s_i < 0.0:
-        raise ValueError(
-            f"Score negativo rejeitado pelo contrato TUU "
-            f"(S_i={s_i:.6f}, intent='{intent}')"
-        )
+    score = round(max(0.0, min(1.0, raw_score)), 4)
     return CandidateEvaluation(
         intent=intent,
         confidence=metrics.confidence,
         feasibility=metrics.feasibility,
         historical_success=metrics.historical_success,
         risk=metrics.risk,
-        score=s_i,
+        score=score,
     )
 
 
-class TUUCore:
-    def __init__(
-        self,
-        policy_engine,
-        executor,
-        observability_hook=None,
-        collapse_engine=None,
-        swarm_engine=None,
-        attestation_engine=None,
-        telemetry_engine=None,
-    ):
-        self.policy_engine = policy_engine
-        self.executor = executor
-        self.observability_hook = observability_hook
-        self.collapse_engine = collapse_engine
-        self.swarm_engine = swarm_engine
-        self.attestation_engine = attestation_engine
-        self.telemetry_engine = telemetry_engine
+def compute_normalized_entropy(scores: list[float]) -> float:
+    n = len(scores)
+    if n <= 1:
+        return 0.0
+    total = sum(max(0.0, s) for s in scores)
+    if total <= 0.0:
+        return 1.0
+    probabilities = [max(0.0, s) / total for s in scores]
+    entropy = -sum(p * math.log2(p) for p in probabilities if p > 0.0)
+    return entropy / math.log2(n)
 
-        # Backward-compatible aliases used by the original M7 core.
-        self.policy = policy_engine
-        self.observability = observability_hook
-        self.collapse = collapse_engine
-        self.swarm = swarm_engine
 
-    def _get_field(self, obj: Any, key: str, default: Any = None) -> Any:
-        if isinstance(obj, dict):
-            return obj.get(key, default)
-        return getattr(obj, key, default)
+TUULifecycleState = Literal[
+    "evaluating", "resolving", "consensus", "collapsed",
+    "executing", "completed", "blocked",
+]
 
-    async def _record(self, event_type: str, data: Any) -> None:
-        if self.observability:
-            result = self.observability(event_type, data)
-            if inspect.isawaitable(result):
-                await result
 
-    def _evaluate_policy(self, request: Any):
-        intent = self._get_field(request, "intent", "ls")
-        args = list(self._get_field(request, "args", []) or [])
-        context = self._get_field(request, "context", {})
-        analytical_metadata = self._get_field(
-            request, "analytical_metadata", {"risk": 0.0}
+class LifecycleEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    state: TUULifecycleState
+    message: str
+    metadata: Mapping[str, Any] = Field(default_factory=dict)
+
+
+class LifecycleResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    final_state: TUULifecycleState
+    candidates: tuple[CandidateEvaluation, ...]
+    entropy_normalized: float
+    collapsed_candidate: CandidateEvaluation | None = None
+    authorization: AuthorizationDecision | None = None
+    execution: ExecutionResult | None = None
+    events: tuple[LifecycleEvent, ...] = ()
+
+
+async def process_intent_lifecycle(
+    metrics: list[AgentMetricOutput],
+    *,
+    authorization_context: AuthorizationContext | None = None,
+    entropy_consensus_threshold: float = 0.75,
+    timeout: float = 5.0,
+) -> LifecycleResult:
+    events: list[LifecycleEvent] = [
+        LifecycleEvent(state="evaluating", message="Epistemic evaluation started.")
+    ]
+
+    if not metrics:
+        events.append(LifecycleEvent(state="blocked", message="No candidate metrics supplied."))
+        return LifecycleResult(
+            final_state="blocked",
+            candidates=(),
+            entropy_normalized=0.0,
+            events=tuple(events),
         )
 
-        return self.policy_engine.evaluate(
-            intent=intent,
-            args=args,
-            context=context,
-            analytical_metadata=analytical_metadata,
+    candidates = tuple(
+        compute_candidate_evaluation(item.intent, item)
+        for item in metrics
+    )
+    events.append(
+        LifecycleEvent(
+            state="evaluating",
+            message="Candidate scores computed deterministically.",
+            metadata={"candidate_count": len(candidates)},
         )
+    )
 
-    async def process(self, request: Any) -> Any:
-        """Interface assíncrona principal usada nas suítes de integração."""
-        return await self._process_internal(request)
-
-    def process_request(self, request: Any) -> Any:
-        """Interface síncrona mantida para chamadas diretas."""
-        import asyncio
-
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return asyncio.run(self._process_internal(request))
-
-        # A synchronous API cannot safely block the already-running event loop.
-        return self._process_sync(request)
-
-    def _process_sync(self, request: Any) -> Any:
-        # Keep the synchronous compatibility path structurally equivalent.
-        import asyncio
-
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return asyncio.run(self._process_internal(request))
-
-        raise RuntimeError(
-            "process_request() cannot synchronously block a running event loop; "
-            "use await process() instead."
+    entropy_normalized = compute_normalized_entropy([c.score for c in candidates])
+    events.append(
+        LifecycleEvent(
+            state="consensus" if entropy_normalized >= entropy_consensus_threshold else "resolving",
+            message="Normalized entropy circuit evaluated.",
+            metadata={"entropy_normalized": entropy_normalized},
         )
+    )
 
-    async def _process_internal(self, request: Any) -> Any:
-        start_time = time.time()
-        request_id = self._get_field(request, "request_id", "req_unknown")
-
-        entropy = 0.0
-        quorum = agreement = margin = 1.0
-        consensus_state = "consensus"
-
-        # M7: collapse receives the candidate list, never the request envelope.
-        if self.collapse_engine is not None:
-            candidates = self._get_field(request, "candidates", None)
-            if candidates is not None:
-                collapse_result = self.collapse_engine.evaluate(list(candidates))
-                if inspect.isawaitable(collapse_result):
-                    collapse_result = await collapse_result
-
-                entropy = getattr(collapse_result, "entropy", 0.0)
-                await self._record("collapse_decision", collapse_result)
-
-                transition = getattr(collapse_result, "transition", None)
-                selected = getattr(collapse_result, "selected_intent", None)
-
-                if transition == "consensus":
-                    # M7: consensus is analytical only; it never authorizes execution.
-                    if self.swarm_engine is None:
-                        return await self._finalize(
-                            request_id,
-                            start_time,
-                            entropy,
-                            quorum,
-                            agreement,
-                            margin,
-                            "unresolved",
-                            "deny",
-                            False,
-                            None,
-                            None,
-                        )
-
-                    opinions = self._get_field(request, "opinions", []) or []
-                    consensus = self.swarm_engine.resolve(list(opinions))
-                    if inspect.isawaitable(consensus):
-                        consensus = await consensus
-
-                    quorum = getattr(consensus, "quorum", 1.0)
-                    agreement = getattr(consensus, "agreement", 1.0)
-                    margin = getattr(consensus, "margin", 1.0)
-                    consensus_state = getattr(
-                        consensus, "transition", "unresolved"
-                    )
-                    await self._record("consensus_state", consensus)
-
-                    selected_intent = getattr(consensus, "selected_intent", None)
-                    if selected_intent is None:
-                        return await self._finalize(
-                            request_id,
-                            start_time,
-                            entropy,
-                            quorum,
-                            agreement,
-                            margin,
-                            consensus_state,
-                            "deny",
-                            False,
-                            None,
-                            None,
-                        )
-
-                    request_intent = selected_intent
-                elif selected is not None:
-                    request_intent = getattr(selected, "intent", selected)
-                else:
-                    request_intent = self._get_field(request, "intent", "ls")
-            else:
-                request_intent = self._get_field(request, "intent", "ls")
-        else:
-            request_intent = self._get_field(request, "intent", "ls")
-
-        # Policy is the normative barrier and receives explicit arguments.
-        policy_request = request
-        if request_intent != self._get_field(request, "intent", "ls"):
-            # Preserve the original request object where possible while applying
-            # the intent selected by the analytical layer.
-            from types import SimpleNamespace
-
-            policy_request = SimpleNamespace(
-                intent=request_intent,
-                args=list(self._get_field(request, "args", []) or []),
-                context=self._get_field(request, "context", {}),
-                analytical_metadata=self._get_field(
-                    request, "analytical_metadata", {"risk": 0.0}
-                ),
+    if len(candidates) > 1 and entropy_normalized < entropy_consensus_threshold:
+        events.append(
+            LifecycleEvent(
+                state="resolving",
+                message="Circuit breaker retained lifecycle in resolving.",
             )
-
-        policy_result = self._evaluate_policy(policy_request)
-        if inspect.isawaitable(policy_result):
-            policy_result = await policy_result
-
-        await self._record("policy_evaluation", policy_result)
-
-        policy_decision = getattr(policy_result, "transition", None)
-        if policy_decision is None:
-            policy_decision = (
-                policy_result.get("decision", "DENY")
-                if isinstance(policy_result, dict)
-                else "DENY"
-            )
-
-        allowed = str(policy_decision).lower() in {"allow", "allowed"}
-
-        if not allowed:
-            return await self._finalize(
-                request_id,
-                start_time,
-                entropy,
-                quorum,
-                agreement,
-                margin,
-                consensus_state,
-                policy_decision,
-                False,
-                None,
-                policy_result,
-            )
-
-        # PolicyDecision is the executor's authorization surface. Do not call
-        # PolicyEngine.authorize() here: doing so would bypass the established
-        # PolicyDecision -> Executor contract.
-        execution_output = self.executor.execute(policy_result)
-        if inspect.isawaitable(execution_output):
-            execution_output = await execution_output
-
-        await self._record("execution_result", execution_output)
-
-        return await self._finalize(
-            request_id,
-            start_time,
-            entropy,
-            quorum,
-            agreement,
-            margin,
-            consensus_state,
-            policy_decision,
-            True,
-            execution_output,
-            execution_output,
+        )
+        return LifecycleResult(
+            final_state="resolving",
+            candidates=candidates,
+            entropy_normalized=entropy_normalized,
+            events=tuple(events),
         )
 
-    async def _finalize(
-        self,
-        request_id: str,
-        start_time: float,
-        entropy: float,
-        quorum: float,
-        agreement: float,
-        margin: float,
-        consensus_state: str,
-        policy_decision: Any,
-        executed: bool,
-        execution_output: Any,
-        return_value: Any,
-    ) -> Any:
-        attestation_hash = "0" * 64
+    collapsed = max(candidates, key=lambda candidate: candidate.score)
+    events.append(
+        LifecycleEvent(
+            state="collapsed",
+            message="Deterministic collapse selected highest-scoring candidate.",
+            metadata={"intent": collapsed.intent, "score": collapsed.score},
+        )
+    )
 
-        if self.attestation_engine:
-            try:
-                attestation = self.attestation_engine.create_attestation(
-                    request_id=request_id,
-                    entropy=entropy,
-                    quorum=quorum,
-                    agreement=agreement,
-                    margin=margin,
-                    consensus_state=consensus_state,
-                    policy_decision=policy_decision,
-                    executed=executed,
-                )
-                if inspect.isawaitable(attestation):
-                    attestation = await attestation
-                attestation_hash = getattr(
-                    attestation, "attestation_hash", attestation_hash
-                )
-            except Exception:
-                pass
+    context = authorization_context or AuthorizationContext()
+    authorization = evaluate_authorization(collapsed, context)
 
-        latency_ms = (time.time() - start_time) * 1000.0
+    if authorization.status != "approved":
+        events.append(
+            LifecycleEvent(
+                state="blocked",
+                message="Authorization rejected the collapsed candidate.",
+                metadata={"reason": authorization.reason},
+            )
+        )
+        return LifecycleResult(
+            final_state="blocked",
+            candidates=candidates,
+            entropy_normalized=entropy_normalized,
+            collapsed_candidate=collapsed,
+            authorization=authorization,
+            events=tuple(events),
+        )
 
-        if self.telemetry_engine:
-            try:
-                telemetry = self.telemetry_engine.record(
-                    request_id=request_id,
-                    latency_ms=latency_ms,
-                    entropy=entropy,
-                    quorum=quorum,
-                    agreement=agreement,
-                    margin=margin,
-                    consensus_state=consensus_state,
-                    policy_decision=policy_decision,
-                    executed=executed,
-                    attestation_hash=attestation_hash,
-                )
-                if inspect.isawaitable(telemetry):
-                    await telemetry
-            except Exception:
-                pass
+    events.append(
+        LifecycleEvent(
+            state="executing",
+            message="Authorization approved; secure execution started.",
+            metadata={"intent": authorization.intent},
+        )
+    )
 
-        if self.observability_hook:
-            try:
-                hook_result = self.observability_hook(
-                    {
-                        "request_id": request_id,
-                        "policy_decision": policy_decision,
-                        "executed": executed,
-                        "attestation_hash": attestation_hash,
-                        "latency_ms": latency_ms,
-                    }
-                )
-                if inspect.isawaitable(hook_result):
-                    await hook_result
-            except Exception:
-                pass
+    execution = await asyncio.to_thread(
+        execute_command_securely,
+        authorization,
+        timeout,
+    )
+    final_state: TUULifecycleState = "completed" if execution.executed else "blocked"
+    events.append(
+        LifecycleEvent(
+            state=final_state,
+            message="Secure execution completed." if execution.executed else "Secure execution failed or timed out.",
+            metadata={"returncode": execution.returncode},
+        )
+    )
 
-        return return_value
+    return LifecycleResult(
+        final_state=final_state,
+        candidates=candidates,
+        entropy_normalized=entropy_normalized,
+        collapsed_candidate=collapsed,
+        authorization=authorization,
+        execution=execution,
+        events=tuple(events),
+    )
