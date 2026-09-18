@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tuu-core"
+version = "2.1.0.dev0"
+description = "Teoria da Unidade Unificada core orchestration and invariant engine"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6,<3",
+]
+
+[tool.setuptools.packages.find]
+include = ["TUU*"]
