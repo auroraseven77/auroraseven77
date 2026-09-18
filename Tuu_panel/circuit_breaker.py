@@ -16,19 +16,7 @@ import math
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-from pydantic import BaseModel, ConfigDict
-
-
-class CandidateEvaluation(BaseModel):
-    """Hipótese avaliada (epistêmica apenas)."""
-    model_config = ConfigDict(extra="forbid")
-
-    intent: str
-    confidence: float
-    feasibility: float = 0.0
-    historical_success: float = 0.0
-    risk: float = 0.0
-    score: float = 0.0
+from TUU.tuu_core import CandidateEvaluation
 
 
 @dataclass(frozen=True)
