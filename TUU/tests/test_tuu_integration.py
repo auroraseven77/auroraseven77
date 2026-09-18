@@ -55,6 +55,21 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertEqual(self.executor.invocations, 0)
 
     def test_t5_real_executor_timeout_contract(self):
+        from unittest.mock import AsyncMock, patch
+
+        class SlowProcess:
+            returncode = None
+
+            async def communicate(self):
+                await asyncio.sleep(0.02)
+                return b"", b""
+
+            async def wait(self):
+                self.returncode = -9
+
+            def kill(self):
+                self.returncode = -9
+
         decision = PolicyDecision(
             transition="allow",
             intent="echo",
@@ -64,20 +79,16 @@ class TuuIntegrationTests(unittest.TestCase):
                 "echo", ["slow"], {"timeout": 0.001, "read_only": False}
             ),
         )
-        result = self.run_async(self.executor.execute(decision))
-        # echo normally completes before 1ms on CI; use an executor subclass only
-        # to force the real timeout path deterministically.
-        if result.transition != "timeout":
-            class SlowExecutor(SandboxExecutor):
-                async def execute(self, policy_decision):
-                    await asyncio.sleep(0.02)
-                    return await super().execute(policy_decision)
 
-            slow = SlowExecutor(max_timeout=0.001)
-            result = self.run_async(slow.execute(decision))
-            self.assertIn(result.transition, {"completed", "timeout"})
-        else:
-            self.assertTrue(result.timed_out)
+        with patch(
+            "tuu_executor.asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=SlowProcess()),
+        ):
+            result = self.run_async(self.executor.execute(decision))
+
+        self.assertEqual(result.transition, "timeout")
+        self.assertTrue(result.timed_out)
+        self.assertEqual(result.executed_request, decision.authorized_request)
 
     def test_t6_authorized_request_equals_executed_request(self):
         decision = self.run_async(
