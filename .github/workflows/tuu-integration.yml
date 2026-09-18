@@ -1,0 +1,25 @@
+name: TUU Integration Contract Tests
+
+on:
+  push:
+    paths:
+      - "TUU/**"
+  pull_request:
+    paths:
+      - "TUU/**"
+  workflow_dispatch:
+
+jobs:
+  tuu-invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run T1-T6 integration contract suite
+        run: python TUU/tests/test_tuu_integration.py
