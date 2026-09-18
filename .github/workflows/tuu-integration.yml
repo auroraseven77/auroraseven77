@@ -21,5 +21,5 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run T1-T6 integration contract suite
+      - name: Run production T1-T6 integration suite
         run: python TUU/tests/test_tuu_integration.py
