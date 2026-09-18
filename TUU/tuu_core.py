@@ -10,6 +10,66 @@ import inspect
 import time
 from typing import Any, Dict, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AgentMetricOutput(BaseModel):
+    """
+    Hard boundary for Agent Swarm output.
+
+    Agents may emit only the four epistemic metrics. Score, ranking,
+    authorization, and execution fields are intentionally forbidden.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    feasibility: float = Field(..., ge=0.0, le=1.0)
+    historical_success: float = Field(..., ge=0.0, le=1.0)
+    risk: float = Field(..., ge=0.0, le=1.0)
+
+
+class CandidateEvaluation(BaseModel):
+    """Internal TUU representation after deterministic score computation."""
+    model_config = ConfigDict(extra="forbid")
+
+    intent: str
+    confidence: float
+    feasibility: float
+    historical_success: float
+    risk: float
+    score: float
+
+
+def compute_candidate_evaluation(
+    intent: str,
+    metrics: AgentMetricOutput,
+    *,
+    w_c: float = 0.4,
+    w_h: float = 0.2,
+    w_v: float = 0.3,
+    w_r: float = 0.1,
+) -> CandidateEvaluation:
+    """Sole deterministic TUU boundary that produces S_i."""
+    s_i = (
+        w_c * metrics.confidence
+        + w_h * metrics.historical_success
+        + w_v * metrics.feasibility
+        - w_r * metrics.risk
+    )
+    if s_i < 0.0:
+        raise ValueError(
+            f"Score negativo rejeitado pelo contrato TUU "
+            f"(S_i={s_i:.6f}, intent='{intent}')"
+        )
+    return CandidateEvaluation(
+        intent=intent,
+        confidence=metrics.confidence,
+        feasibility=metrics.feasibility,
+        historical_success=metrics.historical_success,
+        risk=metrics.risk,
+        score=s_i,
+    )
+
 
 class TUUCore:
     def __init__(
