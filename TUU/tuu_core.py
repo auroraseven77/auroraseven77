@@ -6,7 +6,13 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from TUU.authorization import (\n    AuthorizationContext,\n    AuthorizationDecision,\n    JsonValue,\n    evaluate_authorization,\n    freeze_value,\n)
+from TUU.authorization import (
+    AuthorizationContext,
+    AuthorizationDecision,
+    JsonValue,
+    evaluate_authorization,
+    freeze_value,
+)
 from TUU.execution import ExecutionResult, execute_command_securely
 
 
@@ -76,15 +82,20 @@ TUULifecycleState = Literal[
 
 
 class LifecycleEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
 
     state: TUULifecycleState
     message: str
-    metadata: Mapping[str, Any] = Field(default_factory=dict)
+    metadata: Mapping[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def enforce_recursive_immutability(cls, v: Any) -> Mapping[str, JsonValue]:
+        return freeze_value(v)
 
 
 class LifecycleResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
 
     final_state: TUULifecycleState
     candidates: tuple[CandidateEvaluation, ...]
@@ -92,7 +103,14 @@ class LifecycleResult(BaseModel):
     collapsed_candidate: CandidateEvaluation | None = None
     authorization: AuthorizationDecision | None = None
     execution: ExecutionResult | None = None
-    events: tuple[LifecycleEvent, ...] = Field(default_factory=tuple)\n\n    @field_validator("candidates", "events", mode="before")\n    @classmethod\n    def enforce_immutable_sequences(cls, v: Any) -> tuple:\n        if isinstance(v, list):\n            return tuple(v)\n        return v
+    events: tuple[LifecycleEvent, ...] = Field(default_factory=tuple)
+
+    @field_validator("candidates", "events", mode="before")
+    @classmethod
+    def enforce_immutable_sequences(cls, v: Any) -> tuple:
+        if isinstance(v, list):
+            return tuple(v)
+        return v
 
 
 async def process_intent_lifecycle(
