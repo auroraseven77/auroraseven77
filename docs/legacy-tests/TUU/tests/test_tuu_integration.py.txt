@@ -1,0 +1,4 @@
+Archived legacy M7-era integration suite.
+
+The original file was written against the removed TUUCore API and is preserved here
+for migration/reference only. It is intentionally outside the active pytest surface.
