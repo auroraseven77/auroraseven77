@@ -1,4 +1,4 @@
-name: TUU Integration CI
+name: TUU Integration Pipeline
 
 on:
   push:
@@ -11,21 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
 
-    - name: Install Dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-asyncio
+        pip install pytest pytest-asyncio pydantic
 
-    - name: Run Test Suites (T1-T6 & M7)
-      env:
-        PYTHONPATH: .
-      run: |
-        pytest TUU/tests/ -v
+    - name: Run Pytest (Boundary & Core Tests)
+      run: pytest tests/ TUU/tests/ -v
