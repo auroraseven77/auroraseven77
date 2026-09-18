@@ -1,20 +1,36 @@
-"""TUU/authorization.py - Fronteira normativa de autorização.
+"""TUU/authorization.py - Fronteira normativa de autorização."""
 
-Mantém o contexto de segurança e a decisão de autorização imutáveis,
-separando risco epistemológico da permissão operacional.
-"""
+from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Any, Literal, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from TUU.tuu_core import CandidateEvaluation
+if TYPE_CHECKING:
+    from TUU.tuu_core import CandidateEvaluation
+
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+JsonValue: TypeAlias = (
+    JsonPrimitive
+    | Mapping[str, "JsonValue"]
+    | tuple["JsonValue", ...]
+)
+
+
+def freeze_value(val: Any) -> Any:
+    """Congela recursivamente estruturas JSON-like."""
+    if isinstance(val, dict):
+        return MappingProxyType(
+            {str(k): freeze_value(v) for k, v in val.items()}
+        )
+    if isinstance(val, (list, set, tuple)):
+        return tuple(freeze_value(v) for v in val)
+    return val
 
 
 class AuthorizationContext(BaseModel):
-    """Contexto de segurança imutável injetado pelo ambiente de runtime."""
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     user_id: str = "system"
@@ -26,7 +42,7 @@ class AuthorizationContext(BaseModel):
 
 
 class AuthorizationDecision(BaseModel):
-    """Resultado com imutabilidade rasa e profunda (deep frozen)."""
+    """Decisão normativa com metadata recursivamente imutável."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -38,15 +54,12 @@ class AuthorizationDecision(BaseModel):
     status: Literal["pending", "approved", "rejected"]
     policy_evaluated: str
     reason: str
-    metadata: Mapping[str, Any] = Field(default_factory=dict)
+    metadata: Mapping[str, JsonValue] = Field(default_factory=dict)
 
-    @field_validator("metadata", mode="after")
+    @field_validator("metadata", mode="before")
     @classmethod
-    def enforce_immutable_metadata(cls, v: Any) -> Mapping[str, Any]:
-        """Converte dicionários mutáveis em MappingProxyType imutável."""
-        if isinstance(v, dict):
-            return MappingProxyType(dict(v))
-        return v
+    def enforce_recursive_immutability(cls, v: Any) -> Mapping[str, JsonValue]:
+        return freeze_value(v)
 
 
 def evaluate_authorization(
