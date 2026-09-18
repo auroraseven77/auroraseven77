@@ -19,16 +19,16 @@ class EnxameSimulado:
     async def solicitar_votacao(self, contexto: str, rodada: int) -> List[AgentMetricOutput]:
         logger.info(f"[ENXAME] Gerando propostas | Rodada {rodada}")
         if rodada == 1:
-            # S1 = 0.80, S2 = 0.10 -> H_N = 0.503 < 0.75 (resolving)
+            # S1 = 0.82, S2 = 0.80 -> H_N ~= 1.000, K_N ~= 0.000 (resolving)
             return [
                 AgentMetricOutput(intent="echo Task Completed", confidence=0.9, feasibility=0.9, historical_success=0.9, risk=0.1),
-                AgentMetricOutput(intent="ls -l", confidence=0.2, feasibility=0.2, historical_success=0.2, risk=0.8)
+                AgentMetricOutput(intent="ls -l", confidence=0.89, feasibility=0.9, historical_success=0.9, risk=0.1)
             ]
         else:
-            # S1 = 0.62, S2 = 0.43 -> H_N = 0.976 >= 0.75 (consensus -> completed)
+            # S1 = 0.86, S2 = 0.10 -> H_N ~= 0.482, K_N ~= 0.518 (consensus)
             return [
-                AgentMetricOutput(intent="echo Task Completed", confidence=0.7, feasibility=0.7, historical_success=0.7, risk=0.1),
-                AgentMetricOutput(intent="ls -l", confidence=0.5, feasibility=0.5, historical_success=0.5, risk=0.2)
+                AgentMetricOutput(intent="echo Task Completed", confidence=1.0, feasibility=0.9, historical_success=1.0, risk=0.1),
+                AgentMetricOutput(intent="ls -l", confidence=0.2, feasibility=0.2, historical_success=0.2, risk=0.8)
             ]
 
 
@@ -48,7 +48,7 @@ class AgenteSentinela:
             
         elif result.final_state == "resolving":
             logger.warning(
-                f"[SENTINELA] Retenção por incerteza (entropy_normalized = {result.entropy_normalized:.3f}). "
+                f"[SENTINELA] Retenção por incerteza (H_N = {result.entropy_normalized:.3f}). "
                 "Solicitando nova rodada."
             )
             return "RETRY"
@@ -64,7 +64,7 @@ class AgenteSentinela:
 class AgenteGuardiao:
     """Configura a fronteira normativa e invoca o TUU Core com os contratos corretos."""
     
-    def __init__(self, allowed_commands: set[str], default_tau: float = 0.75):
+    def __init__(self, allowed_commands: set[str], default_tau: float = 0.25):
         self.auth_context = AuthorizationContext(
             allowed_commands=frozenset(allowed_commands),
             max_allowed_risk=0.5
@@ -97,7 +97,7 @@ class FeedbackLoop:
         self.enxame = enxame
         self.max_retries = max_retries
 
-    async def executar_com_convergencia(self, contexto_tarefa: str, tau: float = 0.75) -> LifecycleResult:
+    async def executar_com_convergencia(self, contexto_tarefa: str, tau: float = 0.25) -> LifecycleResult:
         rodada = 1
         while rodada <= self.max_retries:
             logger.info(f"\n=== MALHA FECHADA: Rodada {rodada}/{self.max_retries} ===")
