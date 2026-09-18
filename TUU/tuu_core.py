@@ -1,6 +1,7 @@
 """TUU/tuu_core.py - Orquestrador principal e ciclo epistemico -> autorizacao -> execucao."""
 
 import asyncio
+import hashlib
 import math
 from typing import Any, Literal, Mapping
 
@@ -75,6 +76,61 @@ def compute_normalized_entropy(scores: list[float]) -> float:
     return entropy / math.log2(n)
 
 
+def calculate_swarm_consensus(
+    candidates: tuple[CandidateEvaluation, ...],
+    *,
+    tau_k: float = 0.25,
+    s_min: float = 0.50,
+) -> tuple[float, float, float, int]:
+    """Calcula H_N, K_N, score selecionado e índice do candidato vencedor.
+
+    K_N = 1 - H_N representa concentração da distribuição de scores.
+    O desempate entre scores máximos iguais é determinístico por SHA-256
+    da intenção, escolhendo a menor hash.
+    """
+    if not candidates:
+        return 0.0, 0.0, 0.0, -1
+
+    scores = [max(0.0, candidate.score) for candidate in candidates]
+    n = len(scores)
+
+    if n == 1:
+        h_n_raw = 0.0
+    else:
+        total = sum(scores)
+        if total <= 0.0:
+            h_n_raw = 1.0
+        else:
+            probabilities = [score / total for score in scores]
+            entropy = -sum(
+                p * math.log2(p)
+                for p in probabilities
+                if p > 0.0
+            )
+            h_n_raw = entropy / math.log2(n)
+
+    k_n_raw = 1.0 - h_n_raw
+    max_score = max(scores)
+    tied_indices = [
+        index for index, score in enumerate(scores)
+        if score == max_score
+    ]
+    winner_index = min(
+        tied_indices,
+        key=lambda index: hashlib.sha256(
+            candidates[index].intent.encode("utf-8")
+        ).hexdigest(),
+    )
+
+    selected_score = scores[winner_index]
+    return (
+        round(h_n_raw, 6),
+        round(k_n_raw, 6),
+        round(selected_score, 4),
+        winner_index,
+    )
+
+
 TUULifecycleState = Literal[
     "evaluating", "resolving", "consensus", "collapsed",
     "executing", "completed", "blocked",
@@ -117,7 +173,8 @@ async def process_intent_lifecycle(
     metrics: list[AgentMetricOutput],
     *,
     authorization_context: AuthorizationContext | None = None,
-    entropy_consensus_threshold: float = 0.75,
+    entropy_consensus_threshold: float = 0.25,
+    s_min: float = 0.50,
     timeout: float = 5.0,
 ) -> LifecycleResult:
     events: list[LifecycleEvent] = [
@@ -145,34 +202,58 @@ async def process_intent_lifecycle(
         )
     )
 
-    entropy_normalized = compute_normalized_entropy([c.score for c in candidates])
+    h_n, k_n, selected_score, winner_index = calculate_swarm_consensus(
+        candidates,
+        tau_k=entropy_consensus_threshold,
+        s_min=s_min,
+    )
     events.append(
         LifecycleEvent(
-            state="consensus" if entropy_normalized >= entropy_consensus_threshold else "resolving",
-            message="Normalized entropy circuit evaluated.",
-            metadata={"entropy_normalized": entropy_normalized},
+            state="consensus" if k_n >= entropy_consensus_threshold and selected_score >= s_min else "resolving",
+            message="Normalized Shannon entropy and consensus circuit evaluated.",
+            metadata={
+                "entropy_normalized": h_n,
+                "consensus_normalized": k_n,
+                "selected_score": selected_score,
+                "tau_k": entropy_consensus_threshold,
+                "s_min": s_min,
+            },
         )
     )
 
-    if len(candidates) > 1 and entropy_normalized < entropy_consensus_threshold:
+    if (
+        len(candidates) > 1
+        and (
+            k_n < entropy_consensus_threshold
+            or selected_score < s_min
+        )
+    ):
         events.append(
             LifecycleEvent(
                 state="resolving",
-                message="Circuit breaker retained lifecycle in resolving.",
+                message="Consensus circuit retained lifecycle in resolving.",
             )
         )
         return LifecycleResult(
             final_state="resolving",
             candidates=candidates,
-            entropy_normalized=entropy_normalized,
+            entropy_normalized=h_n,
             events=tuple(events),
         )
 
-    collapsed = max(candidates, key=lambda candidate: candidate.score)
+    if winner_index < 0:
+        return LifecycleResult(
+            final_state="blocked",
+            candidates=candidates,
+            entropy_normalized=h_n,
+            events=tuple(events),
+        )
+
+    collapsed = candidates[winner_index]
     events.append(
         LifecycleEvent(
             state="collapsed",
-            message="Deterministic collapse selected highest-scoring candidate.",
+            message="Deterministic collapse selected the consensus candidate.",
             metadata={"intent": collapsed.intent, "score": collapsed.score},
         )
     )
@@ -191,7 +272,7 @@ async def process_intent_lifecycle(
         return LifecycleResult(
             final_state="blocked",
             candidates=candidates,
-            entropy_normalized=entropy_normalized,
+            entropy_normalized=h_n,
             collapsed_candidate=collapsed,
             authorization=authorization,
             events=tuple(events),
@@ -222,7 +303,7 @@ async def process_intent_lifecycle(
     return LifecycleResult(
         final_state=final_state,
         candidates=candidates,
-        entropy_normalized=entropy_normalized,
+        entropy_normalized=h_n,
         collapsed_candidate=collapsed,
         authorization=authorization,
         execution=execution,
