@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from decimal import Decimal
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -47,10 +48,12 @@ def expected_tie_winner_index(
         raise ValueError("intents and scores must be non-empty and have equal length")
 
     max_score = max(scores)
+    tolerance = Decimal(str(tie_tolerance))
+    max_score_decimal = Decimal(str(max_score))
     tied = [
         index
         for index, score in enumerate(scores)
-        if abs(score - max_score) < tie_tolerance
+        if abs(Decimal(str(score)) - max_score_decimal) < tolerance
     ]
     return min(tied, key=lambda index: sha256_intent(intents[index]))
 
