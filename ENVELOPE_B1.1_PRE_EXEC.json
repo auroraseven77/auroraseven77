@@ -1,0 +1,15 @@
+{
+  "envelope_id": "ENV-PSI-B1.1-PRE-EXEC",
+  "contract_hash_h_pre_prime": "bbc2d5bb6f614628c5f99c4578cf9373e44dcad20b540af5850256c64799c99b",
+  "theoretical_anchor": "84410bac94daa5739144f649a4a886c1244729765c9d146385cb3bd0099f6124",
+  "target_execution_environment": {
+    "python_version": "3.14.6 (main, Jul  5 2026, 10:35:55) [Clang 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 5e96669f0",
+    "python_implementation": "CPython",
+    "os_platform": "Android-14-armv8l-32bit",
+    "machine_arch": "armv8l",
+    "processor_info": ""
+  },
+  "timestamp_sealed_utc": "2026-09-19T21:21:58.960331+00:00",
+  "execution_state": "P4_PENDING",
+  "envelope_signature": "7cd5a1670e75a2fe55a4ea2193c88216ef43cf830bdd521ceb7e8219fd6f0195"
+}
