@@ -14,3 +14,6 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["TUU*", "Tuu_panel*"]
+
+[tool.pytest.ini_options]
+norecursedirs = ["quarantine"]
