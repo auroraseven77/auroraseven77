@@ -13,4 +13,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["TUU*"]
+include = ["TUU*", "Tuu_panel*"]
