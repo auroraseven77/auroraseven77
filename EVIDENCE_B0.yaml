@@ -1,0 +1,29 @@
+evidence_id: "E4-B0-001"
+experiment_reference: "pure-python-statevector-b0"
+status: "OBSERVED_SIMULATION"
+epistemological_layer: "E4-B0"
+
+execution_context:
+  host_os: "Android"
+  architecture: "armv8l"
+  python_version: "CPython 3.14.6"
+  timestamp_utc: "2026-09-19T05:30:14.180546+00:00"
+
+observed_metrics:
+  F_recv: 0.9999999999999996
+  final_state_amplitudes:
+    - [0.7071067811865475, 0.0]
+    - [0.0, 0.0]
+    - [0.0, 0.0]
+    - [0.7071067811865475, 0.0]
+
+cryptographic_bind:
+  experiment_hash: "f8302e54b19055f84a6774c89e64181cfef1d3b4d62a16f8f13bd9578403618a"
+  raw_log_sha256: "3b9a4ac258cdcf0423b966920635dd287fccc1a84c2b2da461894ce21a761bb1"
+
+epistemological_invariants:
+  traceability_chain_verified: true
+  computational_integrity: true
+  thermodynamic_quantum_claim: false
+  physical_qpu_execution_claim: false
+  replay_protection_claim: false

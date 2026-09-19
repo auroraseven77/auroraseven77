@@ -1,0 +1,27 @@
+evidence_id: "E4-B0-PRIME-001"
+experiment_reference: "pure-python-statevector-b0-prime"
+status: "OBSERVED_SIMULATION"
+epistemological_layer: "E4-B0"
+
+execution_context:
+  host_os: "Android"
+  architecture: "armv8l"
+  python_version: "CPython 3.14.6"
+
+observed_metrics:
+  F_recv: 0.9999999999999996
+  final_state_amplitudes:
+    - [0.7071067811865475, 0.0]
+    - [0.0, 0.0]
+    - [0.0, 0.0]
+    - [0.7071067811865475, 0.0]
+
+cryptographic_bind:
+  experiment_hash: "20f837374ae7893e9e8c4629b09a58dd3b9a15aed30e1c0b45399df8b33e61e9"
+  raw_log_sha256: "5d60ee213dee2486e43c724f19161c5b1328242448e8badae64ab20f0d39d45b"
+  raw_log_file: "raw_log_b0_prime.json"
+
+epistemological_invariants:
+  traceability_chain_verified: true
+  computational_integrity: true
+  thermodynamic_quantum_claim: false

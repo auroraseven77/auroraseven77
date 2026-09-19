@@ -1,0 +1,31 @@
+{
+  "backend": "pure-python-statevector-b0-prime",
+  "circuit_execution": [
+    "GATE: H(q0)",
+    "GATE: CX(q0 -> q1)",
+    "MEASUREMENT: Fidelity = 1.000000000000"
+  ],
+  "circuit_id": "C0",
+  "experiment_hash": "20f837374ae7893e9e8c4629b09a58dd3b9a15aed30e1c0b45399df8b33e61e9",
+  "final_state_vector": [
+    [
+      0.7071067811865475,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.7071067811865475,
+      0.0
+    ]
+  ],
+  "metric_F_recv": 0.9999999999999996,
+  "target_state": "Phi_plus",
+  "timestamp_utc": "2026-09-19T05:43:08.576224+00:00"
+}
