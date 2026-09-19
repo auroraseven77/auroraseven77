@@ -1,4 +1,4 @@
-""""TUU/authorization.py - Fronteira normativa de autorização."""
+"""TUU/authorization.py - Fronteira normativa de autorização."""
 
 from __future__ import annotations
 
