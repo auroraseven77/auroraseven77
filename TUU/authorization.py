@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 if TYPE_CHECKING:
     from TUU.tuu_core import CandidateEvaluation
-
-
-JsonPrimitive: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = (
-    JsonPrimitive
-    | Mapping[str, "JsonValue"]
-    | tuple["JsonValue", ...]
-)
 
 
 def freeze_value(val: Any) -> Any:
@@ -56,9 +48,9 @@ class AuthorizationDecision(BaseModel):
     reason: str
     metadata: Mapping[str, JsonValue] = Field(default_factory=dict)
 
-    @field_validator("metadata", mode="before")
+    @field_validator("metadata", mode="after")
     @classmethod
-    def enforce_recursive_immutability(cls, v: Any) -> Mapping[str, JsonValue]:
+    def enforce_recursive_immutability(cls, v: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
         return freeze_value(v)
 
 
@@ -93,3 +85,4 @@ def evaluate_authorization(
         policy_evaluated="strict_local_policy",
         reason="Hipótese colapsada atende à allowlist e ao limite de risco.",
     )
+

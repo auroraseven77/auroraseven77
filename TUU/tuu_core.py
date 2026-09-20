@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import math
+from decimal import Decimal
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -76,44 +77,42 @@ def compute_normalized_entropy(scores: list[float]) -> float:
     return entropy / math.log2(n)
 
 
-def calculate_swarm_consensus(
+def _calculate_swarm_consensus_raw(
     candidates: tuple[CandidateEvaluation, ...],
     *,
-    tau_k: float = 0.25,
-    s_min: float = 0.50,
-) -> tuple[float, float, float, int]:
-    """Calcula H_N, K_N, score selecionado e índice do candidato vencedor.
-
-    K_N = 1 - H_N representa concentração da distribuição de scores.
-    O desempate entre scores máximos iguais é determinístico por SHA-256
-    da intenção, escolhendo a menor hash.
-    """
+    tie_tolerance: float = 1e-9,
+) -> tuple[float, float, tuple[float, ...], float, int]:
+    """Return RAW H_N/K_N/probabilities before presentation rounding."""
     if not candidates:
-        return 0.0, 0.0, 0.0, -1
+        return 0.0, 0.0, (), 0.0, -1
 
-    scores = [max(0.0, candidate.score) for candidate in candidates]
+    scores = tuple(max(0.0, candidate.score) for candidate in candidates)
     n = len(scores)
-
     if n == 1:
         h_n_raw = 0.0
+        probabilities = (1.0,)
     else:
-        total = sum(scores)
+        total = math.fsum(scores)
         if total <= 0.0:
+            probabilities = tuple(1.0 / n for _ in scores)
             h_n_raw = 1.0
         else:
-            probabilities = [score / total for score in scores]
-            entropy = -sum(
-                p * math.log2(p)
-                for p in probabilities
-                if p > 0.0
+            probabilities = tuple(score / total for score in scores)
+            entropy = -math.fsum(
+                probability * math.log2(probability)
+                for probability in probabilities
+                if probability > 0.0
             )
             h_n_raw = entropy / math.log2(n)
 
     k_n_raw = 1.0 - h_n_raw
     max_score = max(scores)
+    tolerance = Decimal(str(tie_tolerance))
+    max_score_decimal = Decimal(str(max_score))
     tied_indices = [
-        index for index, score in enumerate(scores)
-        if score == max_score
+        index
+        for index, score in enumerate(scores)
+        if abs(Decimal(str(score)) - max_score_decimal) < tolerance
     ]
     winner_index = min(
         tied_indices,
@@ -121,8 +120,21 @@ def calculate_swarm_consensus(
             candidates[index].intent.encode("utf-8")
         ).hexdigest(),
     )
-
     selected_score = scores[winner_index]
+    return h_n_raw, k_n_raw, probabilities, selected_score, winner_index
+
+
+def calculate_swarm_consensus(
+    candidates: tuple[CandidateEvaluation, ...],
+    *,
+    tau_k: float = 0.25,
+    s_min: float = 0.50,
+    tie_tolerance: float = 1e-9,
+) -> tuple[float, float, float, int]:
+    """Calculate presentation values from a RAW-first consensus evaluation."""
+    h_n_raw, k_n_raw, _, selected_score, winner_index = _calculate_swarm_consensus_raw(
+        candidates, tie_tolerance=tie_tolerance
+    )
     return (
         round(h_n_raw, 6),
         round(k_n_raw, 6),
@@ -156,6 +168,9 @@ class LifecycleResult(BaseModel):
     final_state: TUULifecycleState
     candidates: tuple[CandidateEvaluation, ...]
     entropy_normalized: float
+    probabilities_raw: tuple[float, ...] = Field(default_factory=tuple)
+    h_n_raw: float = 0.0
+    k_n_raw: float = 0.0
     collapsed_candidate: CandidateEvaluation | None = None
     authorization: AuthorizationDecision | None = None
     execution: ExecutionResult | None = None
@@ -187,6 +202,9 @@ async def process_intent_lifecycle(
             final_state="blocked",
             candidates=(),
             entropy_normalized=0.0,
+            probabilities_raw=(),
+            h_n_raw=0.0,
+            k_n_raw=0.0,
             events=tuple(events),
         )
 
@@ -202,11 +220,11 @@ async def process_intent_lifecycle(
         )
     )
 
-    h_n, k_n, selected_score, winner_index = calculate_swarm_consensus(
-        candidates,
-        tau_k=entropy_consensus_threshold,
-        s_min=s_min,
+    h_n_raw, k_n_raw, probabilities_raw, selected_score, winner_index = (
+        _calculate_swarm_consensus_raw(candidates, tie_tolerance=1e-9)
     )
+    h_n = round(h_n_raw, 6)
+    k_n = round(k_n_raw, 6)
     events.append(
         LifecycleEvent(
             state="consensus" if k_n >= entropy_consensus_threshold and selected_score >= s_min else "resolving",
@@ -238,6 +256,9 @@ async def process_intent_lifecycle(
             final_state="resolving",
             candidates=candidates,
             entropy_normalized=h_n,
+            probabilities_raw=probabilities_raw,
+            h_n_raw=h_n_raw,
+            k_n_raw=k_n_raw,
             events=tuple(events),
         )
 
@@ -273,6 +294,9 @@ async def process_intent_lifecycle(
             final_state="blocked",
             candidates=candidates,
             entropy_normalized=h_n,
+            probabilities_raw=probabilities_raw,
+            h_n_raw=h_n_raw,
+            k_n_raw=k_n_raw,
             collapsed_candidate=collapsed,
             authorization=authorization,
             events=tuple(events),
@@ -304,6 +328,9 @@ async def process_intent_lifecycle(
         final_state=final_state,
         candidates=candidates,
         entropy_normalized=h_n,
+        probabilities_raw=probabilities_raw,
+        h_n_raw=h_n_raw,
+        k_n_raw=k_n_raw,
         collapsed_candidate=collapsed,
         authorization=authorization,
         execution=execution,
