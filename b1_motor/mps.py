@@ -15,6 +15,35 @@ class MPSContract:
     physical_dim: int = 2
 
 
+# ==============================================================================
+# GERADORES DE PORTAS DE DOIS QUBITS (P2.7-B)
+# ==============================================================================
+
+def cnot() -> np.ndarray:
+    """Return the CNOT unitary in |00>, |01>, |10>, |11> order."""
+    return np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0, 1, 0],
+        ],
+        dtype=np.complex128,
+    )
+
+
+def zz(theta: float) -> np.ndarray:
+    """Return ZZ(theta) = exp(-i theta/2 Z tensor Z)."""
+    return np.diag(
+        [
+            np.exp(-1j * theta / 2.0),
+            np.exp(1j * theta / 2.0),
+            np.exp(1j * theta / 2.0),
+            np.exp(-1j * theta / 2.0),
+        ]
+    ).astype(np.complex128)
+
+
 class MPS:
     def __init__(self, n_qubits: int, bond_dim: int = CHI_MAX):
         if not 1 <= n_qubits <= LOGICAL_QUBITS_MAX:
@@ -141,6 +170,141 @@ class MPS:
             tensor,
             optimize=True,
         )
+
+    def apply_two_qubit_gate(
+        self,
+        qubit_idx: int,
+        U: np.ndarray,
+    ) -> dict:
+        """Apply a validated nearest-neighbor two-qubit unitary locally."""
+
+        if not isinstance(qubit_idx, (int, np.integer)):
+            raise TypeError(
+                f"qubit_idx deve ser inteiro, recebido {type(qubit_idx)}"
+            )
+
+        if qubit_idx < 0 or qubit_idx >= self.n_qubits - 1:
+            raise IndexError(
+                "qubit_idx must satisfy "
+                f"0 <= qubit_idx < {self.n_qubits - 1}, "
+                f"recebido {qubit_idx}"
+            )
+
+        if not isinstance(U, np.ndarray):
+            raise TypeError(
+                f"U deve ser np.ndarray, recebido {type(U)}"
+            )
+
+        if U.dtype != np.complex128:
+            raise TypeError(
+                "U.dtype deve ser estritamente complex128, "
+                f"recebido {U.dtype}"
+            )
+
+        if U.shape != (4, 4):
+            raise ValueError(
+                f"U must have shape (4, 4), recebido {U.shape}"
+            )
+
+        if not np.all(np.isfinite(U)):
+            raise ValueError("U deve conter apenas valores finitos")
+
+        identity = np.eye(4, dtype=np.complex128)
+
+        if not np.allclose(
+            U.conj().T @ U,
+            identity,
+            rtol=0.0,
+            atol=1e-14,
+        ):
+            raise ValueError(
+                "U must be unitary (|U^dag U - I| <= 1e-14)"
+            )
+
+        A1 = self.tensors[qubit_idx]
+        A2 = self.tensors[qubit_idx + 1]
+
+        chi_L, _, chi_M = A1.shape
+        _, _, chi_R = A2.shape
+
+        Theta = np.tensordot(
+            A1,
+            A2,
+            axes=([2], [0]),
+        )
+
+        U_tensor = U.reshape(2, 2, 2, 2)
+
+        Theta_prime = np.einsum(
+            "ijkl,aklb->aijb",
+            U_tensor,
+            Theta,
+        )
+
+        Theta_mat = Theta_prime.reshape(
+            chi_L * 2,
+            2 * chi_R,
+        )
+
+        U_svd, S, Vh = np.linalg.svd(
+            Theta_mat,
+            full_matrices=False,
+        )
+
+        chi_max = self.bond_dim
+        epsilon_trunc = 1.0e-8
+
+        valid_sv_count = int(
+            np.sum(S >= epsilon_trunc)
+        )
+
+        k = max(
+            1,
+            min(
+                chi_max,
+                valid_sv_count,
+            ),
+        )
+
+        discarded_S = S[k:]
+
+        discarded_weight_squared = float(
+            np.sum(discarded_S ** 2)
+        )
+
+        L_abs = float(
+            np.sqrt(discarded_weight_squared)
+        )
+
+        truncated = len(discarded_S) > 0
+
+        U_k = U_svd[:, :k]
+        S_k = S[:k]
+        Vh_k = Vh[:k, :]
+
+        A1_new = U_k.reshape(
+            chi_L,
+            2,
+            k,
+        )
+
+        A2_new = (
+            S_k[:, None] * Vh_k
+        ).reshape(
+            k,
+            2,
+            chi_R,
+        )
+
+        self.tensors[qubit_idx] = A1_new
+        self.tensors[qubit_idx + 1] = A2_new
+
+        return {
+            "chi_actual": int(k),
+            "discarded_weight_squared": discarded_weight_squared,
+            "L_abs": L_abs,
+            "truncated": truncated,
+        }
 
     def to_global_state_vector(self) -> np.ndarray:
         """

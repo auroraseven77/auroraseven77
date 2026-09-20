@@ -1,0 +1,199 @@
+p2_7_b_contract_v1_0:
+  timestamp: "2026-09-20"
+  phase: "P2.7-B"
+  name: "Nearest-Neighbor Two-Qubit Gates on MPS"
+  status: "SEALED"
+
+  scope:
+    purpose: >
+      Introduce nearest-neighbor two-qubit unitary evolution on the
+      existing MPS representation without global state-vector
+      materialization.
+    dependency:
+      - "P2.7-A local single-qubit rotations"
+    non_goals:
+      - "Non-adjacent gates"
+      - "SWAP networks"
+      - "Global dense state-vector evolution"
+      - "Two-qubit gates requiring global matrix construction"
+
+  representation:
+    mps_tensor_shape: "[chi_left, physical_dim, chi_right]"
+    physical_dim: 2
+    tensor_dtype: "complex128"
+    state_representation: "MPS"
+    global_state_vector: "FORBIDDEN"
+
+  operation:
+    primary_api: >
+      apply_two_qubit_gate(qubit_idx: int, U: np.ndarray) -> dict
+
+    semantics:
+      pair: "[qubit_idx, qubit_idx + 1]"
+      topology: "nearest_neighbor_only"
+      second_qubit: "qubit_idx + 1"
+
+    supported_generators:
+      - "cnot()"
+      - "zz(theta: float)"
+
+  input_contract:
+    qubit_idx:
+      type: "integer"
+      constraint: "0 <= qubit_idx < n_qubits - 1"
+
+    U:
+      shape: "[4, 4]"
+      dtype: "complex128"
+      finite: true
+      unitary: true
+      unitarity_tolerance:
+        rtol: 0.0
+        atol: 1.0e-14
+
+  gate_conventions:
+    computational_basis:
+      ordering: "[|00>, |01>, |10>, |11>]"
+
+    cnot:
+      control: "qubit_idx"
+      target: "qubit_idx + 1"
+      matrix:
+        - [1, 0, 0, 0]
+        - [0, 1, 0, 0]
+        - [0, 0, 0, 1]
+        - [0, 0, 1, 0]
+
+    zz:
+      definition: "exp(-i * theta/2 * (Z tensor Z))"
+      matrix:
+        - ["exp(-i*theta/2)", 0, 0, 0]
+        - [0, "exp(+i*theta/2)", 0, 0]
+        - [0, 0, "exp(+i*theta/2)", 0]
+        - [0, 0, 0, "exp(-i*theta/2)"]
+
+  local_update:
+    contraction:
+      theta_shape: "[chi_left, 2, 2, chi_right]"
+      matrix_shape: "[2*chi_left, 2*chi_right]"
+
+    sequence:
+      - "Contract tensors at qubit_idx and qubit_idx + 1"
+      - "Apply U only on the two physical indices"
+      - "Reshape Theta to Theta_mat"
+      - "Compute deterministic SVD"
+      - "Truncate according to truncation_contract"
+      - "Split SVD factors into two MPS tensors"
+      - "Replace only tensors {qubit_idx, qubit_idx + 1}"
+
+    forbidden:
+      - "Global 2^N state vector"
+      - "Global 2^N x 2^N matrix"
+      - "Dense global simulation"
+      - "Non-adjacent tensor contraction"
+
+  truncation_contract:
+    chi_max:
+      source: "MPS.bond_dim"
+
+    epsilon_trunc: 1.0e-8
+
+    retained_rank:
+      definition: >
+        k = max(1, min(chi_max, number_of_singular_values >= epsilon_trunc))
+
+    minimum_rank:
+      nonzero_state: 1
+
+    ordering:
+      singular_values: "non-increasing"
+
+    discarded_weight:
+      absolute_squared:
+        definition: "sum(discarded_sigma^2)"
+      absolute:
+        definition: "sqrt(sum(discarded_sigma^2))"
+        name: "L_abs"
+
+    report:
+      fields:
+        - "chi_actual"
+        - "discarded_weight_squared"
+        - "L_abs"
+        - "truncated"
+
+  invariants:
+    topology:
+      adjacent_only: true
+
+    locality:
+      unchanged_tensors: >
+        Every tensor outside indices {qubit_idx, qubit_idx + 1}
+        must remain byte-identical.
+
+    bond_dimension:
+      post_gate:
+        constraint: "chi_actual <= MPS.bond_dim"
+
+    tensor_shapes:
+      physical_dimension: 2
+      open_boundary_conditions: true
+
+    norm:
+      no_truncation: >
+        For an initially normalized state, unitary evolution must
+        preserve norm within atol = 1e-12.
+      truncation: >
+        The contract records discarded squared singular-value weight
+        explicitly; no stronger norm-loss identity is assumed without
+        canonical normalization semantics.
+
+    determinism:
+      same_input_same_environment: >
+        Repeated execution with identical MPS tensors, gate matrix,
+        parameters, NumPy version and numerical environment must produce
+        identical retained rank and numerically equivalent output tensors
+        within the declared numerical tolerance.
+
+  memory_contract:
+    maximum_local_intermediate:
+      shape: "[chi_max, 2, 2, chi_max]"
+      elements: "4 * chi_max^2"
+      bytes_complex128: "16 * 4 * chi_max^2"
+
+    reference_chi: 128
+    reference_elements: 65536
+    reference_memory_mib: 1.0
+
+  observability:
+    required:
+      - "chi_actual"
+      - "L_abs"
+      - "discarded_weight_squared"
+      - "truncated"
+
+    benchmark_only:
+      max_time_per_gate_ms: 100
+      max_process_memory_delta_mb: 10
+
+    benchmark_status: "NON_FUNCTIONAL ACCEPTANCE CRITERIA"
+
+  validation:
+    regression_p2_7_a:
+      required: "53/53 PASS"
+
+    required_cases:
+      - "CNOT on |00> preserves product state"
+      - "CNOT on |10> produces |11>"
+      - "single-qubit superposition followed by CNOT produces Bell state"
+      - "ZZ(theta) preserves norm"
+      - "arbitrary 4x4 unitary accepted when valid"
+      - "non-unitary matrix rejected"
+      - "wrong shape rejected"
+      - "non-adjacent gate rejected"
+      - "boundary index rejected"
+      - "outside tensors byte-identical"
+      - "bond dimension never exceeds chi_max"
+      - "truncation report is mathematically consistent"
+      - "N=64 execution remains tensorial"
+      - "global state-vector path remains forbidden"
