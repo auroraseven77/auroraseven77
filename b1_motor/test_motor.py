@@ -27,14 +27,14 @@ def test_nelder_mead_constraints():
         
     x0 = [0.0, 0.0, 0.0]
     # Restringindo max_evals para forçar a parada no meio do setup
-    x_opt, val_opt, evals = minimize(dummy_obj, x0, max_evals=2)
+    x_opt, val_opt, evals, status, simplex = minimize(dummy_obj, x0, max_evals=2)
     assert evals == 2, f"Orçamento quebrado: {evals}"
     
     # Testando se initial_step default é 0.05 via espionagem da função dummy
     def dummy_step(x):
         return x[0]
         
-    x_opt2, val_opt2, evals2 = minimize(dummy_step, [0.0], max_evals=2)
+    x_opt2, val_opt2, evals2, status2, simplex2 = minimize(dummy_step, [0.0], max_evals=2)
     assert abs(x_opt2[0] - 0.0) < 1e-9 or abs(x_opt2[0] - 0.05) < 1e-9
 
 if __name__ == "__main__":
