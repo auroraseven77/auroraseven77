@@ -90,6 +90,58 @@ class MPS:
         if self.max_bond_dimension > self.bond_dim:
             raise AssertionError("bond dimension contract violated")
 
+    def apply_local_rotation(
+        self,
+        qubit_idx: int,
+        U: np.ndarray,
+    ) -> None:
+        """Apply a validated single-qubit unitary to one MPS tensor.
+
+        This operation is strictly local: it changes only the physical
+        index and preserves both virtual bond dimensions. No SVD or
+        truncation is performed.
+        """
+        if not isinstance(qubit_idx, (int, np.integer)):
+            raise TypeError("qubit_idx must be an integer")
+
+        if not 0 <= qubit_idx < self.n_qubits:
+            raise IndexError(
+                f"qubit_idx must satisfy 0 <= qubit_idx < {self.n_qubits}"
+            )
+
+        U = np.asarray(U)
+
+        if U.shape != (self.physical_dim, self.physical_dim):
+            raise ValueError(
+                f"U must have shape "
+                f"({self.physical_dim}, {self.physical_dim})"
+            )
+
+        if not np.issubdtype(U.dtype, np.number):
+            raise TypeError("U must contain numeric values")
+
+        if not np.all(np.isfinite(U)):
+            raise ValueError("U must contain only finite values")
+
+        identity = np.eye(self.physical_dim, dtype=np.complex128)
+
+        if not np.allclose(
+            U.conj().T @ U,
+            identity,
+            rtol=0.0,
+            atol=1e-12,
+        ):
+            raise ValueError("U must be unitary")
+
+        tensor = self.tensors[qubit_idx]
+
+        self.tensors[qubit_idx] = np.einsum(
+            "ab,lbr->lar",
+            U,
+            tensor,
+            optimize=True,
+        )
+
     def to_global_state_vector(self) -> np.ndarray:
         """
         Trava de segurança arquitetural:
@@ -146,4 +198,41 @@ def svd_truncate(
         singular_values[:kept],
         vh[:kept, :],
         report,
+    )
+
+
+def rx(theta: float) -> np.ndarray:
+    """Return the single-qubit Rx(theta) unitary in complex128."""
+    c = np.cos(theta / 2.0)
+    s = np.sin(theta / 2.0)
+    return np.array(
+        [
+            [c, -1j * s],
+            [-1j * s, c],
+        ],
+        dtype=np.complex128,
+    )
+
+
+def ry(theta: float) -> np.ndarray:
+    """Return the single-qubit Ry(theta) unitary in complex128."""
+    c = np.cos(theta / 2.0)
+    s = np.sin(theta / 2.0)
+    return np.array(
+        [
+            [c, -s],
+            [s, c],
+        ],
+        dtype=np.complex128,
+    )
+
+
+def rz(theta: float) -> np.ndarray:
+    """Return the single-qubit Rz(theta) unitary in complex128."""
+    return np.array(
+        [
+            [np.exp(-1j * theta / 2.0), 0.0],
+            [0.0, np.exp(1j * theta / 2.0)],
+        ],
+        dtype=np.complex128,
     )
