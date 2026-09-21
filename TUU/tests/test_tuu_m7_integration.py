@@ -10,7 +10,12 @@ from unittest.mock import AsyncMock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tuu_collapse import CandidateEvaluation, CollapseEngine
-from tuu_core import TUUCore
+from TUU.authorization import AuthorizationContext
+from tuu_core import (
+    AgentMetricOutput,
+    TUUCore,
+    process_intent_lifecycle,
+)
 from tuu_policy import PolicyEngine
 from tuu_swarm import AgentOpinion, SwarmEngine
 
@@ -62,39 +67,39 @@ class TuuM7IntegrationTests(unittest.TestCase):
         self.assertEqual(state.margin, 1.0)
         self.assertFalse(hasattr(state, "authorized_request"))
 
-    def test_m7_3_high_entropy_consensus_then_policy_deny_blocks_executor(self):
-        collapse = CollapseEngine(entropy_threshold=0.5)
-        swarm = SwarmEngine()
-        executor = SpyExecutor()
-        core = TUUCore(
-            PolicyEngine(),
-            executor,
-            collapse_engine=collapse,
-            swarm_engine=swarm,
+    def test_m7_3_consensus_does_not_bypass_authorization(self):
+        metrics = [
+            AgentMetricOutput(
+                intent="rm",
+                confidence=1.0,
+                feasibility=1.0,
+                historical_success=1.0,
+                risk=0.0,
+            ),
+        ]
+
+        result = self.run_async(
+            process_intent_lifecycle(
+                metrics=metrics,
+                authorization_context=AuthorizationContext(
+                    user_id="operator_01",
+                ),
+                entropy_consensus_threshold=0.25,
+                s_min=0.50,
+                timeout=5.0,
+            )
         )
 
-        message = SimpleNamespace(
-            candidates=[
-                CandidateEvaluation("rm", 1.0, risk=0.0, score=1.0),
-                CandidateEvaluation("rm", 1.0, risk=0.0, score=1.0),
-                CandidateEvaluation("rm", 1.0, risk=0.0, score=1.0),
-            ],
-            opinions=[
-                AgentOpinion("a1", "rm", 1.0),
-                AgentOpinion("a2", "rm", 1.0),
-                AgentOpinion("a3", "rm", 1.0),
-                AgentOpinion("a4", "rm", 1.0),
-            ],
-            args=["x"],
-            context={},
-            analytical_metadata={"risk": 0.0},
+        self.assertEqual(result.final_state, "blocked")
+        self.assertIsNotNone(result.collapsed_candidate)
+        self.assertEqual(result.collapsed_candidate.intent, "rm")
+        self.assertIsNotNone(result.authorization)
+        self.assertEqual(result.authorization.status, "rejected")
+        self.assertEqual(
+            result.authorization.policy_evaluated,
+            "allowlist_policy",
         )
-
-        result = self.run_async(core.process(message))
-
-        self.assertEqual(result.transition, "deny")
-        self.assertEqual(result.rule_id, "RULE_HARD_RESTRICTED")
-        self.assertEqual(executor.calls, 0)
+        self.assertIsNone(result.execution)
 
     def test_m7_4_allow_path_preserves_authorized_request_identity(self):
         executor = AsyncMock()
