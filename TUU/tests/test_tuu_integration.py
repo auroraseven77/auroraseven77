@@ -73,10 +73,37 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertIsNone(result.execution)
 
     def test_t3_high_analytical_risk_cannot_override_policy(self):
-        result = self.process("echo", ["TUU"], risk=0.95)
-        self.assertEqual(result.transition, "deny")
-        self.assertEqual(result.rule_id, "RULE_HIGH_ANALYTICAL_RISK")
-        self.assertEqual(self.executor.invocations, 0)
+        metrics = [
+            AgentMetricOutput(
+                intent="echo",
+                confidence=0.9,
+                feasibility=0.9,
+                historical_success=0.9,
+                risk=0.95,
+            )
+        ]
+
+        result = self.run_async(
+            process_intent_lifecycle(
+                metrics=metrics,
+                authorization_context=AuthorizationContext(
+                    user_id="operator_01",
+                    max_allowed_risk=0.50,
+                ),
+                entropy_consensus_threshold=0.25,
+                s_min=0.50,
+                timeout=5.0,
+            )
+        )
+
+        self.assertEqual(result.final_state, "blocked")
+        self.assertIsNotNone(result.authorization)
+        self.assertEqual(result.authorization.status, "rejected")
+        self.assertEqual(
+            result.authorization.policy_evaluated,
+            "risk_threshold_policy",
+        )
+        self.assertIsNone(result.execution)
 
     def test_t4_allowlist_bypass_is_rejected(self):
         result = self.process("not_an_intent")
