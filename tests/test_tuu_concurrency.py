@@ -11,7 +11,7 @@ import asyncio
 import pytest
 
 from TUU.authorization import AuthorizationContext
-from TUU.tuu_core import AgentMetricOutput, LifecycleEvent, process_intent_lifecycle
+from TUU.tuu_core import AgentMetricOutput, process_intent_lifecycle
 
 
 @pytest.mark.asyncio
@@ -40,8 +40,8 @@ async def test_concurrent_lifecycles_execution_isolation():
         )
         result = await process_intent_lifecycle(
             metrics=metrics,
-            auth_context=auth_context,
-            entropy_threshold=0.5,
+            authorization_context=auth_context,
+            entropy_consensus_threshold=0.5,
         )
         return task_id, intent_str, result
 
@@ -104,18 +104,18 @@ async def test_concurrent_lifecycles_mixed_outcomes():
 
     task_valid = process_intent_lifecycle(
         metrics=metrics_valid,
-        auth_context=auth_context,
-        entropy_threshold=0.5,
+        authorization_context=auth_context,
+        entropy_consensus_threshold=0.5,
     )
     task_blocked = process_intent_lifecycle(
         metrics=metrics_blocked,
-        auth_context=auth_context,
-        entropy_threshold=0.5,
+        authorization_context=auth_context,
+        entropy_consensus_threshold=0.5,
     )
     task_resolving = process_intent_lifecycle(
         metrics=metrics_resolving,
-        auth_context=auth_context,
-        entropy_threshold=0.99,
+        authorization_context=auth_context,
+        entropy_consensus_threshold=0.99,
     )
 
     res_valid, res_blocked, res_resolving = await asyncio.gather(
@@ -128,39 +128,24 @@ async def test_concurrent_lifecycles_mixed_outcomes():
 
 
 @pytest.mark.asyncio
-async def test_event_listener_concurrency_isolation():
+async def test_event_collection_concurrency_isolation():
     """
-    Comprova ausência de vazamento de estado de callbacks: listener_task1
-    jamais captura eventos disparados por task2 e vice-versa.
+    Valida isolamento dos eventos retornados por cada LifecycleResult na API atual.
     """
-    captured_events_task1: list[LifecycleEvent] = []
-    captured_events_task2: list[LifecycleEvent] = []
-
-    async def listener_task1(event: LifecycleEvent):
-        captured_events_task1.append(event)
-
-    async def listener_task2(event: LifecycleEvent):
-        captured_events_task2.append(event)
-
-    m1 = [
-        AgentMetricOutput(
-            intent="echo Listener1",
-            confidence=0.9,
-            feasibility=0.9,
-            historical_success=0.9,
-            risk=0.1,
-        )
-    ]
-    m2 = [
-        AgentMetricOutput(
-            intent="echo Listener2",
-            confidence=0.9,
-            feasibility=0.9,
-            historical_success=0.9,
-            risk=0.1,
-        )
-    ]
-
+    m1 = [AgentMetricOutput(
+        intent="echo Listener1",
+        confidence=0.9,
+        feasibility=0.9,
+        historical_success=0.9,
+        risk=0.1,
+    )]
+    m2 = [AgentMetricOutput(
+        intent="echo Listener2",
+        confidence=0.9,
+        feasibility=0.9,
+        historical_success=0.9,
+        risk=0.1,
+    )]
     ctx1 = AuthorizationContext(
         allowed_commands=frozenset({"echo Listener1"}),
         max_allowed_risk=0.5,
@@ -169,27 +154,24 @@ async def test_event_listener_concurrency_isolation():
         allowed_commands=frozenset({"echo Listener2"}),
         max_allowed_risk=0.5,
     )
-
-    await asyncio.gather(
+    res1, res2 = await asyncio.gather(
         process_intent_lifecycle(
             m1,
-            auth_context=ctx1,
-            entropy_threshold=0.5,
-            event_listener=listener_task1,
+            authorization_context=ctx1,
+            entropy_consensus_threshold=0.5,
         ),
         process_intent_lifecycle(
             m2,
-            auth_context=ctx2,
-            entropy_threshold=0.5,
-            event_listener=listener_task2,
+            authorization_context=ctx2,
+            entropy_consensus_threshold=0.5,
         ),
     )
-
-    assert len(captured_events_task1) > 0
-    assert len(captured_events_task2) > 0
-
-    assert all("Listener2" not in e.message for e in captured_events_task1)
-    assert all("Listener1" not in e.message for e in captured_events_task2)
+    assert res1.events
+    assert res2.events
+    assert any(e.metadata.get("intent") == "echo Listener1" for e in res1.events)
+    assert any(e.metadata.get("intent") == "echo Listener2" for e in res2.events)
+    assert all(e.metadata.get("intent") != "echo Listener2" for e in res1.events)
+    assert all(e.metadata.get("intent") != "echo Listener1" for e in res2.events)
 
 
 @pytest.mark.asyncio
@@ -216,8 +198,8 @@ async def test_high_volume_concurrency_stress():
         )
         return await process_intent_lifecycle(
             metrics,
-            auth_context=ctx,
-            entropy_threshold=0.5,
+            authorization_context=ctx,
+            entropy_consensus_threshold=0.5,
         )
 
     results = await asyncio.gather(*(run_stress(i) for i in range(num_parallel)))
