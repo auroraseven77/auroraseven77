@@ -69,7 +69,13 @@ async def test_full_lifecycle_execution(dummy_context):
     metrics = [
         create_metric("deploy_service", confidence=1.0, historical_success=1.0),
         create_metric("deploy_service", confidence=0.95, historical_success=0.9),
-        create_metric("alternative_cmd", confidence=0.1, historical_success=0.1),
+        AgentMetricOutput(
+            intent="alternative_cmd",
+            confidence=0.0,
+            feasibility=0.5,
+            historical_success=0.0,
+            risk=1.0,
+        ),
     ]
 
     mock_auth = AuthorizationDecision(
