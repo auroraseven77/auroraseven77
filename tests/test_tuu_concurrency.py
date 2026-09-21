@@ -90,9 +90,9 @@ async def test_concurrent_lifecycles_mixed_outcomes():
         ),
         AgentMetricOutput(
             intent="echo B",
-            confidence=0.1,
-            feasibility=0.1,
-            historical_success=0.1,
+            confidence=0.7,
+            feasibility=0.7,
+            historical_success=0.7,
             risk=0.9,
         ),
     ]

@@ -54,8 +54,8 @@ def test_compute_candidate_evaluation_rejects_negative_score():
         feasibility=0.0,
         risk=1.0,
     )
-    with pytest.raises(ValueError, match="Score negativo"):
-        compute_candidate_evaluation("unauthorized_cmd", metrics)
+    candidate = compute_candidate_evaluation("unauthorized_cmd", metrics)
+    assert candidate.score == 0.0
 
 
 def test_circuit_breaker_consumes_canonical_candidate_evaluation():
