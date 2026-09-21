@@ -149,7 +149,8 @@ class SymmetricVQEAnsatz:
             for control, target in self.cx_pairs:
                 report = prepared.apply_two_qubit_gate(control, cx)
                 total_discarded += report["discarded_weight_squared"]
-                truncations += int(report["truncated"])
+                if report["discarded_weight_squared"] > 0.0:
+                    truncations += 1
                 cx_count += 1
 
         prepared.validate_structure()

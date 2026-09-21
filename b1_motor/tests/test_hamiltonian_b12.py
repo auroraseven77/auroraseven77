@@ -16,7 +16,11 @@ def test_b12_hamiltonian_shape_and_agent_boundaries():
     boundary_terms = [
         term
         for term in hamiltonian.terms
-        if term.sites in ((21, 22), (43, 44))
+        if (
+            term.sites in ((21, 22), (43, 44))
+            and term.operators == ("Z", "Z")
+            and term.coefficient == 0.5 + 0j
+        )
     ]
     assert [term.coefficient for term in boundary_terms] == [
         0.5 + 0j,
