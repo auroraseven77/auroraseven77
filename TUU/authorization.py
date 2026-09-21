@@ -56,7 +56,7 @@ class AuthorizationDecision(BaseModel):
     reason: str
     metadata: Mapping[str, JsonValue] = Field(default_factory=dict)
 
-    @field_validator("metadata", mode="before")
+    @field_validator("metadata", mode="after")
     @classmethod
     def enforce_recursive_immutability(cls, v: Any) -> Mapping[str, JsonValue]:
         return freeze_value(v)
