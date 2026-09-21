@@ -28,11 +28,12 @@ def create_metric(
     intent: str,
     confidence: float = 0.9,
     historical_success: float = 0.9,
+    feasibility: float = 0.9,
 ) -> AgentMetricOutput:
     return AgentMetricOutput(
         intent=intent,
         confidence=confidence,
-        feasibility=0.9,
+        feasibility=feasibility,
         historical_success=historical_success,
         risk=0.1,
     )
