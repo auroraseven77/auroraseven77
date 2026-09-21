@@ -80,6 +80,9 @@ def test_rotation_matrices_are_ry_rz_only():
         assert np.allclose(matrix.conj().T @ matrix, np.eye(2), atol=1e-12)
 
 
-def test_cx_topology_is_not_implemented_yet():
-    ansatz = SymmetricVQEAnsatz()
-    assert not hasattr(ansatz, "apply")
+def test_apply_is_available_after_topology_closure():
+    ansatz = SymmetricVQEAnsatz(n_qubits=2)
+    params = np.zeros(ansatz.parameter_count)
+    state = ansatz.apply(params, bond_dim=2)
+    assert state.n_qubits == 2
+    assert state.max_bond_dimension <= 2
