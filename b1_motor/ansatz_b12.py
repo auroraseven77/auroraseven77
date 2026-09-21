@@ -54,6 +54,22 @@ class SymmetricVQEAnsatz:
     def gate_names() -> tuple[str, str]:
         return ("RY", "RZ")
 
+    @property
+    def rotation_order(self) -> tuple[str, str]:
+        return ("RY", "RZ")
+
+    @property
+    def cx_pairs(self) -> tuple[tuple[int, int], ...]:
+        return tuple((q, q + 1) for q in range(self.n_qubits - 1))
+
+    @property
+    def cx_orientation(self) -> str:
+        return "lower_to_higher"
+
+    @property
+    def entangler_placement(self) -> str:
+        return "after_rotations"
+
     def parameter_index(self, layer: int, qubit: int, gate: str) -> int:
         if not 0 <= layer < self.layers:
             raise IndexError(
