@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tuu_core import AgentMetricOutput, process_intent_lifecycle
+from authorization import AuthorizationContext
 from tuu_core import TUUCore
 from tuu_executor import SandboxExecutor
 from tuu_policy import AuthorizedRequest, PolicyDecision, PolicyEngine
@@ -38,9 +40,37 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertEqual(result.executed_request.args, ("TUU",))
 
     def test_t2_deny_means_zero_executor_invocations(self):
-        result = self.process("rm", ["x"])
-        self.assertEqual(result.transition, "deny")
-        self.assertEqual(self.executor.invocations, 0)
+        metrics = [
+            AgentMetricOutput(
+                intent="rm",
+                confidence=0.9,
+                feasibility=0.9,
+                historical_success=0.9,
+                risk=0.1,
+            )
+        ]
+
+        result = self.run_async(
+            process_intent_lifecycle(
+                metrics=metrics,
+                authorization_context=AuthorizationContext(
+                    user_id="operator_01",
+                    allowed_commands=frozenset({"echo"}),
+                ),
+                entropy_consensus_threshold=0.25,
+                s_min=0.50,
+                timeout=5.0,
+            )
+        )
+
+        self.assertEqual(result.final_state, "blocked")
+        self.assertIsNotNone(result.authorization)
+        self.assertEqual(result.authorization.status, "rejected")
+        self.assertEqual(
+            result.authorization.policy_evaluated,
+            "allowlist_policy",
+        )
+        self.assertIsNone(result.execution)
 
     def test_t3_high_analytical_risk_cannot_override_policy(self):
         result = self.process("echo", ["TUU"], risk=0.95)
