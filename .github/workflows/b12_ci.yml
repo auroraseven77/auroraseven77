@@ -1,0 +1,41 @@
+name: B1.2 MPS CI
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["feat/b1.2-observables-ansatz-contract"]
+
+jobs:
+  b12-tests:
+    name: B1.2 tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install B1.2 test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pytest pydantic
+
+      - name: Run B1.2 test suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q \
+            b1_motor/tests/test_ansatz_b12.py \
+            b1_motor/tests/test_ansatz_topology_b12.py \
+            b1_motor/tests/test_hamiltonian_b12.py \
+            b1_motor/tests/test_observables_api.py \
+            b1_motor/tests/test_vqe_b12.py
