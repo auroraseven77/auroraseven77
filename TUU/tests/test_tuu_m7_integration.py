@@ -36,9 +36,14 @@ class TuuM7IntegrationTests(unittest.TestCase):
                 CandidateEvaluation("pwd", 0.80, score=0.01),
             ]
         )
+
         self.assertEqual(decision.transition, "collapse")
+        self.assertIsNotNone(decision.selected_intent)
         self.assertEqual(decision.selected_intent.intent, "echo")
         self.assertLess(decision.normalized_entropy, 0.5)
+        self.assertEqual(decision.score, 0.98)
+        self.assertEqual(decision.confidence, 0.99)
+        self.assertFalse(hasattr(decision, "authorized_request"))
 
     def test_m7_2_unanimous_swarm_consensus(self):
         engine = SwarmEngine()
