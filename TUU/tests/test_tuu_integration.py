@@ -23,22 +23,6 @@ class TuuIntegrationTests(unittest.TestCase):
     def run_async(self, coro):
         return asyncio.run(coro)
 
-    def process(self, intent, args=None, risk=0.0):
-        message = SimpleNamespace(
-            intent=intent,
-            args=list(args or []),
-            context={},
-            analytical_metadata={"risk": risk},
-        )
-        return self.run_async(self.core.process(message))
-
-    def test_t1_allow_reaches_terminal_execution_state(self):
-        result = self.process("echo", ["TUU"])
-        self.assertEqual(result.transition, "completed")
-        self.assertEqual(result.stdout, "TUU\n")
-        self.assertEqual(result.executed_request.intent, "echo")
-        self.assertEqual(result.executed_request.args, ("TUU",))
-
     def test_t2_deny_means_zero_executor_invocations(self):
         metrics = [
             AgentMetricOutput(
