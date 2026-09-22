@@ -105,12 +105,13 @@ A adoção deste contrato implica que a suíte de testes deve refletir a arquite
 | **T2, T3, T4** | Propriedades de segurança preservadas | Migrar para `AuthorizationDecision` e autorização atual |
 | **M7.1, M7.2** | Testes unitários de motores | Manter diretamente em `CollapseEngine` / `SwarmEngine` |
 | **M7.3** | Barreira normativa | Reescrever para a semântica de `process_intent_lifecycle` |
-| **T5** | Comportamento de execução | Mover para testes de `execute_command_securely()` |
-| **Unknown Mapping** | Comportamento de execução | Testar no módulo de execução |
-| **T1** | Contrato legado de argumentos | Manter sob disposição arquitetural até decisão específica |
-| **T6** | Identidade `AuthorizedRequest` | Manter sob disposição arquitetural |
-| **M7.4** | Contrato legado de autorização/execução | Manter sob disposição arquitetural |
-| **M7.5** | Retrocompatibilidade de `TUUCore` | Manter sob disposição arquitetural |
+| **T1** | Fluxo legado `TUUCore` + `AuthorizedRequest` + argumentos | Retirar do Integration Pipeline; a propriedade de execução autorizada é coberta por M7.4. A representação estruturada de argumentos permanece questão arquitetural separada |
+| **T5** | Timeout do executor | Migrar para teste direto de `execute_command_securely()` usando `AuthorizationDecision` / `ExecutionResult` atuais |
+| **T6** | Identidade `AuthorizedRequest` | Retirar como contrato não equivalente; não há identidade equivalente no modelo atual |
+| **Argument violation** | Sanitização/validação de argumentos do contrato legado | Retirar do Integration Pipeline; não existe propriedade equivalente no contrato atual até que a representação estruturada de argumentos seja especificada |
+| **Unknown Mapping** | Defesa de execução contra executável fora da allowlist | Migrar para teste direto de `execute_command_securely()` como defesa em profundidade |
+| **M7.4** | Contrato legado de autorização/execução | Substituído por teste de continuidade `collapsed_candidate.intent → authorization.intent → execution.intent` |
+| **M7.5** | Retrocompatibilidade de `TUUCore` | Retirar/arquivar como contrato histórico; `TUUCore` não é contrato canônico e não possui equivalente atual |
 
 Os testes classificados como contratos arquiteturais legados não devem ser apagados ou alterados para mascarar a divergência antes da aprovação deste ADR.
 
@@ -134,18 +135,23 @@ Esses pontos exigem decisões ou mudanças independentes.
 
 ## Disposição dos Contratos Legados
 
-Os testes T1, T6, M7.4 e M7.5 permanecem temporariamente classificados como:
+A auditoria final do Integration Pipeline confirmou que os contratos remanescentes não formam um único bloco migrável. Eles foram separados entre propriedades preserváveis no contrato atual, testes que devem ser deslocados para a camada de execução e contratos históricos sem equivalente.
 
-> *Legacy architectural contracts under disposition*
+### M7.5 — decisão explícita
 
-A disposição definitiva de cada contrato deverá ser registrada após a aprovação deste ADR. As possibilidades são:
+M7.5 será **retirado/arquivado como contrato histórico** e não será migrado para `process_intent_lifecycle`. Seu objeto é verificar retrocompatibilidade de `TUUCore`, `PolicyEngine`, `AuthorizedRequest` e `core.process()`. Essas abstrações foram removidas do contrato canônico no commit `53b247f1877cd9873c8903e8ffc77eeb4f329dbc`. Não existe uma propriedade normativa equivalente que justifique recriar essa API.
 
-* Migração para o contrato atual;
-* Substituição por um contrato equivalente;
-* Arquivamento como comportamento historicamente suportado;
-* Decisão arquitetural separada para reintrodução da capacidade.
+A propriedade operacional de continuidade de uma intenção autorizada até a execução já é coberta pelo M7.4 atual.
 
-Nenhuma dessas opções deve ser presumida antecipadamente.
+### Testes legados de `test_tuu_integration.py`
+
+- **T1:** retirar do Integration Pipeline; sua parte de execução autorizada é coberta por M7.4, enquanto argumentos estruturados continuam sem contrato definitivo.
+- **T5:** migrar para teste direto de `execute_command_securely()`, preservando a propriedade de timeout sob o contrato atual.
+- **T6:** retirar como contrato de identidade de `AuthorizedRequest`; não há equivalente atual.
+- **Argument violation:** retirar como contrato legado de validação/sanitização de argumentos; não há equivalente atual até uma especificação explícita de argumentos estruturados.
+- **Unknown Mapping:** migrar para teste direto de `execute_command_securely()`, preservando a defesa em profundidade da allowlist de execução.
+
+Esta decisão não reintroduz `TUUCore`, `AuthorizedRequest` ou `PolicyDecision`, e não altera produção.
 
 ---
 
