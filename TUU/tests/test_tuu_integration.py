@@ -122,40 +122,38 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertIsNone(result.execution)
 
     def test_t5_real_executor_timeout_contract(self):
-        from unittest.mock import AsyncMock, patch
+        import subprocess
+        from unittest.mock import patch
 
-        class SlowProcess:
-            returncode = None
+        from TUU.authorization import AuthorizationDecision
+        from execution import execute_command_securely
 
-            async def communicate(self):
-                await asyncio.sleep(0.02)
-                return b"", b""
-
-            async def wait(self):
-                self.returncode = -9
-
-            def kill(self):
-                self.returncode = -9
-
-        decision = PolicyDecision(
-            transition="allow",
+        decision = AuthorizationDecision(
             intent="echo",
-            rule_id="TEST_ALLOW",
+            status="approved",
+            policy_evaluated="allowlist_policy",
             reason="timeout contract",
-            authorized_request=AuthorizedRequest.create(
-                "echo", ["slow"], {"timeout": 0.001, "read_only": False}
-            ),
         )
 
         with patch(
-            "tuu_executor.asyncio.create_subprocess_exec",
-            new=AsyncMock(return_value=SlowProcess()),
+            "execution.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(
+                cmd=["echo"],
+                timeout=0.001,
+            ),
         ):
-            result = self.run_async(self.executor.execute(decision))
+            result = execute_command_securely(
+                decision,
+                timeout=0.001,
+            )
 
-        self.assertEqual(result.transition, "timeout")
-        self.assertTrue(result.timed_out)
-        self.assertEqual(result.executed_request, decision.authorized_request)
+        self.assertEqual(result.intent, decision.intent)
+        self.assertFalse(result.executed)
+        self.assertEqual(result.returncode, -1)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
+        self.assertIsNotNone(result.error_message)
+        self.assertIn("Timeout atingido", result.error_message)
 
     def test_t6_authorized_request_equals_executed_request(self):
         decision = self.run_async(
