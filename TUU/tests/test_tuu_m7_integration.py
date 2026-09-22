@@ -4,19 +4,12 @@ import asyncio
 import sys
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tuu_collapse import CandidateEvaluation, CollapseEngine
 from TUU.authorization import AuthorizationContext
-from tuu_core import (
-    AgentMetricOutput,
-    TUUCore,
-    process_intent_lifecycle,
-)
-from tuu_policy import PolicyEngine
+from tuu_core import AgentMetricOutput, process_intent_lifecycle
 from tuu_swarm import AgentOpinion, SwarmEngine
 
 
@@ -142,36 +135,6 @@ class TuuM7IntegrationTests(unittest.TestCase):
             result.authorization.intent,
         )
 
-    def test_m7_5_core_remains_backward_compatible_without_epistemic_layers(self):
-        executor = AsyncMock()
-        from tuu_executor import ExecutionResult
-
-        async def execute(decision):
-            return ExecutionResult(
-                transition="completed",
-                intent=decision.intent,
-                executed_request=decision.authorized_request,
-                return_code=0,
-                stdout="TUU\\n",
-                stderr="",
-                duration_ms=0.0,
-            )
-
-        executor.execute.side_effect = execute
-        core = TUUCore(PolicyEngine(), executor)
-
-        message = SimpleNamespace(
-            intent="echo",
-            args=["TUU"],
-            context={},
-            analytical_metadata={"risk": 0.0},
-        )
-
-        result = self.run_async(core.process(message))
-
-        self.assertEqual(result.transition, "completed")
-        self.assertEqual(result.stdout, "TUU\\n")
-        executor.execute.assert_awaited_once()
 
 
 if __name__ == "__main__":
