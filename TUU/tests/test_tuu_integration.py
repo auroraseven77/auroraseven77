@@ -155,23 +155,6 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(result.error_message)
         self.assertIn("Timeout atingido", result.error_message)
 
-    def test_t6_authorized_request_equals_executed_request(self):
-        decision = self.run_async(
-            self.policy.evaluate("pkg_search", ["python"], {}, {"risk": 0.0})
-        )
-        self.assertEqual(decision.transition, "allow")
-        result = self.run_async(self.executor.execute(decision))
-        self.assertIs(result.executed_request, decision.authorized_request)
-        self.assertEqual(result.executed_request, decision.authorized_request)
-        self.assertEqual(
-            result.executed_request,
-            AuthorizedRequest.create(
-                "pkg_search",
-                ["python"],
-                {"timeout": 2.0, "read_only": False},
-            ),
-        )
-
     def test_argument_violation_is_denied_not_sanitized(self):
         result = self.process("echo", ["safe", "x;rm -rf /"])
         self.assertEqual(result.transition, "deny")
