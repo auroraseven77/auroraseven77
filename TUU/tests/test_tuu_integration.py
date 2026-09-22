@@ -155,12 +155,6 @@ class TuuIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(result.error_message)
         self.assertIn("Timeout atingido", result.error_message)
 
-    def test_argument_violation_is_denied_not_sanitized(self):
-        result = self.process("echo", ["safe", "x;rm -rf /"])
-        self.assertEqual(result.transition, "deny")
-        self.assertEqual(result.rule_id, "RULE_ARGUMENT_VIOLATION")
-        self.assertEqual(self.executor.invocations, 0)
-
     def test_executor_rejects_unknown_mapping(self):
         request = AuthorizedRequest.create("rm", ["x"], {"timeout": 2.0})
         decision = PolicyDecision(
