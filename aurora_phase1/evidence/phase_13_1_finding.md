@@ -54,10 +54,10 @@ X Pull request is not mergeable: the base branch policy prohibits the merge.
 - protection: 7 checks + enforce_admins + require_pr
 
 ## Implicacao contratual
-Toda alteração em `main` requer PR com os 7 checks verdes. Push direto � impossível, inclusive para admin. Isso � invariante operacional.
+Toda alteração em `main` requer PR com os 7 checks verdes. Push direto é impossível, inclusive para admin. Isso é invariante operacional.
 
 ## Artefatos
-- Configuração GitHub (n�o versionada)
+- Configuração GitHub (não versionada)
 - Histórico de commits mostra os 3 testes + 3 reverts
 
 ## Verificação
