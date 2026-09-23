@@ -1,0 +1,39 @@
+{
+  "contract_id": "role_argos_v1",
+  "version": "1.0.0",
+  "role": "ARGOS",
+  "region": "OBSERVATION",
+  "description": "Habitante de observação. Coleta métricas, formula hipóteses, propõe sedimentação. Nunca executa, nunca escreve estado diretamente.",
+  "allowed_actions": [
+    "PROPOSE_OBSERVATION",
+    "PROPOSE_ANOMALY_DETECTION",
+    "PROPOSE_STATE_SNAPSHOT"
+  ],
+  "disallowed_actions": [
+    "EXECUTE_DIRECTLY",
+    "INVOKE_SHELL",
+    "MODIFY_CONTRACT",
+    "PROPOSE_COMMAND_EXECUTION",
+    "PROPOSE_SANDBOX_WRITE",
+    "MODIFY_SYSTEM_STATE"
+  ],
+  "proposal_schema": {
+    "required_fields": [
+      "proposal_id",
+      "agent_id",
+      "role",
+      "action_type",
+      "timestamp_logical",
+      "hypothesis",
+      "seed"
+    ],
+    "optional_fields": [
+      "observation_data",
+      "anomaly_score",
+      "snapshot_id"
+    ]
+  },
+  "max_hypotheses_per_cycle": 1,
+  "hypothesis_max_length": 512,
+  "denied_patterns": []
+}

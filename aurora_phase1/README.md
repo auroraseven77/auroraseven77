@@ -131,3 +131,31 @@ Código-fonte de b1_motor: github.com/auroraseven77/auroraseven77
 
 ---
 
+
+## Reconstruction provenance
+
+Este diretório foi reconstruído a partir do estado documentado anteriormente
+no container do AI Studio, após reset do ambiente. O histórico Git preserva
+o README original como parte do primeiro commit deste diretório.
+
+Blocos reconstruídos:
+- Bloco 0: skeleton + contracts + BOUNDARIES.md
+
+Blocos planejados:
+- Bloco 1: core/crypto.py
+- Bloco 2: core/ledger.py
+- Bloco 3: core/agent.py
+- Bloco 4: core/tuu.py
+- Bloco 5: core/reconstruct.py
+- Bloco 6: core/attestation.py
+- Bloco 7: core/executor.py
+- Bloco 8: core/quantum_bridge.py
+- Bloco 9: core/vqe_loop.py
+- Bloco 10: demo_phase1.py
+- Bloco 11: tests/
+- Bloco 12: evidence/
+
+Cada bloco só avança após validação no Termux e commit no GitHub.
+
+b1_motor NÃO é duplicado aqui. O motor canônico vive em /b1_motor na raiz
+do repositório. Este diretório consome o canônico via core/quantum_bridge.py.

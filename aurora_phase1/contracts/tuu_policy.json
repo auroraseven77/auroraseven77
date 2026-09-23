@@ -1,0 +1,45 @@
+{
+  "contract_id": "tuu_policy_v1",
+  "version": "1.0.0",
+  "description": "Política de governança do Centro. Define regras de integridade, autorização e circuit breaker.",
+  "integrity": {
+    "canonical_serialization": "jcs",
+    "hash_function": "sha256",
+    "chain_required": true,
+    "genesis_prev_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "authorization": {
+    "default_decision": "reject",
+    "require_contract_validation": true,
+    "require_hash_validation": true,
+    "require_replay_check": true,
+    "require_temporal_check": true,
+    "require_content_check": true
+  },
+  "circuit_breaker": {
+    "max_invalid_proposals": 10,
+    "on_threshold_exceeded": "OPEN",
+    "reset_on_valid_proposal": false
+  },
+  "temporal": {
+    "max_future_ticks": 1,
+    "allow_negative_ticks": false,
+    "require_integer_ticks": true
+  },
+  "replay": {
+    "rejected_proposals_count_as_seen": true,
+    "persist_seen_across_reconstruction": true
+  },
+  "attestation": {
+    "verify_on_boot": true,
+    "on_verification_failure": "hard_stop",
+    "degraded_flag_allowed": true,
+    "degraded_marker_in_state": true
+  },
+  "execution": {
+    "shell": false,
+    "env_inheritance": false,
+    "max_runtime_ms": 5000,
+    "max_output_bytes": 65536
+  }
+}
