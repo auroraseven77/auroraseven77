@@ -1,0 +1,31 @@
+{
+  "contract_id": "contract_vqe_loop",
+  "version": "1.0.0",
+  "description": "Política do loop VQE multiagente. Proposer → measurer → communicator → observer → convergência.",
+  "max_iterations": 20,
+  "convergence_threshold": 1e-6,
+  "proposer": {
+    "type": "pure_function",
+    "strategy": "perturb_best",
+    "perturbation_scale": 0.1
+  },
+  "measurer": {
+    "type": "quantum_bridge",
+    "role_contract": "quantum_observer_role.json"
+  },
+  "communicator": {
+    "type": "pure_function"
+  },
+  "observer": {
+    "type": "pure_function",
+    "decide": "convergence_or_max_iter"
+  },
+  "roles": {
+    "proposer": "HEPHAESTUS",
+    "measurer": "QUANTUM_OBSERVER",
+    "communicator": "HERMES",
+    "observer": "ARGOS"
+  },
+  "n_qubits_default": 4,
+  "bond_dim_default": 8
+}
