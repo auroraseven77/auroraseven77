@@ -101,7 +101,8 @@ class Ledger:
         return blocks
 
     def count(self) -> int:
-        return sum(1 for _ in self.path.open("r", encoding="utf-8"))
+        with self.path.open("r", encoding="utf-8") as f:
+            return sum(1 for _ in f)
 
     def last(self) -> Optional[Block]:
         blocks = self.read_all()
