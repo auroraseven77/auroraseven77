@@ -153,4 +153,3 @@ O texto apresenta uma arquitetura conceitual baseada em **vetores fractais, TriG
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=120&section=footer" />
 
 </div>
-# test branch protection
