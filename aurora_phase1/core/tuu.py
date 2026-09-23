@@ -221,6 +221,8 @@ class TUU:
                 "proposal_id": proposal["proposal_id"],
                 "agent_id": proposal["agent_id"],
                 "action_type": proposal["action_type"],
+                "observation_data": proposal.get("observation_data"),
+                "hypothesis": proposal.get("hypothesis", ""),
                 "state_hash": self.state_hash(),
             },
             tick=self._world_state["tick"],

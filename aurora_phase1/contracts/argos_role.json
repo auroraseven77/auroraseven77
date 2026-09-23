@@ -35,5 +35,14 @@
   },
   "max_hypotheses_per_cycle": 1,
   "hypothesis_max_length": 512,
-  "denied_patterns": []
+  "denied_patterns": [
+    "\\bimport\\b",
+    "\\bexec\\b",
+    "\\beval\\b",
+    "__",
+    ";",
+    "\\|",
+    "&",
+    "`"
+  ]
 }

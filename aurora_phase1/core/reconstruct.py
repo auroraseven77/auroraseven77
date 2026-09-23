@@ -177,15 +177,18 @@ class WorldReconstructor:
             if pid:
                 seen.add(pid)
 
-            # Reconstrói observação se o payload tiver dados suficientes
             agent_id = payload.get("agent_id")
             if agent_id:
                 key = f"obs_tick_{block.tick}_{agent_id[:8]}"
                 state["observations"][key] = {
                     "source_agent": agent_id,
-                    "action_type": payload.get("action_type"),
+                    "data": payload.get("observation_data"),
+                    "hypothesis": payload.get("hypothesis", ""),
                     "recorded_at_tick": block.tick,
                 }
+                hyp = payload.get("hypothesis", "")
+                if hyp:
+                    state["hypotheses_sedimented"].append(hyp)
             return
 
         if et == "PROPOSAL_REJECTED":
