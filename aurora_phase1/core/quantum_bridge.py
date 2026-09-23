@@ -159,7 +159,7 @@ class QuantumBridge:
                 n_qubits=n_qubits,
             )
 
-        flat = json.dumps(obs_data, ensure_ascii=False)
+        flat = json.dumps(obs_data, ensure_ascii=False, default=str)
         for pat in self._denied_patterns:
             if re.search(pat, flat):
                 return _reject(
@@ -237,7 +237,7 @@ class QuantumBridge:
                         n_qubits=n_qubits,
                     )
 
-            if not isinstance(coefficient, (int, float)):
+            if not isinstance(coefficient, (int, float, complex)):
                 return _reject(
                     STATUS_REJECTED_MALFORMED,
                     "REJECTED_MALFORMED",

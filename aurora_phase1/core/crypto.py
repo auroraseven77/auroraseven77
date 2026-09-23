@@ -11,6 +11,18 @@ import json
 from typing import Any
 
 
+def _json_default(obj: Any) -> Any:
+    """Encoder default para tipos não-JSON (complex).
+
+    Converte complex para string canônica determinística no formato
+    "(real+imagj)". Permite hashing estável de objetos com coeficientes
+    complexos.
+    """
+    if isinstance(obj, complex):
+        return f"({obj.real}+{obj.imag}j)"
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
 def canonical_json(obj: Any) -> str:
     """Serialização JSON determinística.
 
@@ -26,6 +38,7 @@ def canonical_json(obj: Any) -> str:
         separators=(",", ":"),
         ensure_ascii=False,
         allow_nan=False,
+        default=_json_default,
     )
 
 
