@@ -9,7 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tuu_core import AgentMetricOutput, process_intent_lifecycle
 from authorization import AuthorizationContext
-from tuu_core import TUUCore
 from tuu_executor import SandboxExecutor
 from tuu_policy import AuthorizedRequest, PolicyDecision, PolicyEngine
 
@@ -18,7 +17,6 @@ class TuuIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.policy = PolicyEngine()
         self.executor = SandboxExecutor()
-        self.core = TUUCore(self.policy, self.executor)
 
     def run_async(self, coro):
         return asyncio.run(coro)
