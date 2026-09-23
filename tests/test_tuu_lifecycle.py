@@ -28,11 +28,12 @@ def create_metric(
     intent: str,
     confidence: float = 0.9,
     historical_success: float = 0.9,
+    feasibility: float = 0.9,
 ) -> AgentMetricOutput:
     return AgentMetricOutput(
         intent=intent,
         confidence=confidence,
-        feasibility=0.9,
+        feasibility=feasibility,
         historical_success=historical_success,
         risk=0.1,
     )
@@ -69,7 +70,7 @@ async def test_full_lifecycle_execution(dummy_context):
     metrics = [
         create_metric("deploy_service", confidence=1.0, historical_success=1.0),
         create_metric("deploy_service", confidence=0.95, historical_success=0.9),
-        create_metric("alternative_cmd", confidence=0.1, historical_success=0.1),
+        create_metric("alternative_cmd", confidence=0.1, historical_success=0.1, feasibility=0.0),
     ]
 
     mock_auth = AuthorizationDecision(
