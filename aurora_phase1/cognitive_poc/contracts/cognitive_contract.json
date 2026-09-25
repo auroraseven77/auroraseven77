@@ -1,0 +1,46 @@
+{
+  "contract_id": "cognitive_core_boundary_v1",
+  "version": "1.0.0",
+  "role": "COGNITIVE_CORE",
+  "region": "COGNITION",
+  "description": "Boundary contract for the Aurora Cognitive Core. The component may reason about observations, hypotheses, predictions, beliefs and uncertainty, but has no execution or authorization authority.",
+  "allowed_capabilities": [
+    "OBSERVE",
+    "FORM_HYPOTHESIS",
+    "FORM_PREDICTION",
+    "COMMIT_PREDICTION",
+    "UPDATE_BELIEF",
+    "ATTRIBUTE_ERROR",
+    "PROPOSE_ACTION",
+    "REPORT_UNKNOWN"
+  ],
+  "disallowed_capabilities": [
+    "EXECUTE",
+    "AUTHORIZE",
+    "MODIFY_CONTRACT",
+    "WRITE_LEDGER_DIRECTLY",
+    "BYPASS_TUU",
+    "MUTATE_COMMITTED_PREDICTION"
+  ],
+  "authority": {
+    "execution_authority": false,
+    "authorization_authority": false,
+    "ledger_write_authority": false,
+    "contract_mutation_authority": false
+  },
+  "integration": {
+    "governance_gate": "aurora_phase1.core.tuu.TUU",
+    "ledger": "aurora_phase1.core.ledger.Ledger",
+    "crypto": "aurora_phase1.core.crypto",
+    "executor": "aurora_phase1.core.executor.IsolatedExecutor",
+    "reconstruction": "aurora_phase1.core.reconstruct.WorldReconstructor",
+    "agent": "aurora_phase1.core.agent.EphemeralAgent"
+  },
+  "invariants": [
+    "COGNITIVE_STATE_IS_NOT_AUTHORIZATION_STATE",
+    "COGNITIVE_PROPOSAL_REQUIRES_TUU_GATE",
+    "COGNITIVE_CORE_MUST_NOT_EXECUTE_DIRECTLY",
+    "COGNITIVE_CORE_MUST_NOT_WRITE_LEDGER_DIRECTLY",
+    "COMMITTED_PREDICTIONS_ARE_IMMUTABLE"
+  ]
+}
