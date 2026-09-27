@@ -334,6 +334,26 @@ Até essa definição, a implementação MUST NOT introduzir equivalência impl�
 
 Uma evidência que não possa ser demonstrada como temporalmente admissível NÃO PODE ser tratada como evidência válida de uma atualização retroativa.
 
+### B8.5 — Temporal Admissibility Boundary
+
+**Status: DEFINED / BRIDGE OPEN**
+
+Para o contrato atual, a admissibilidade temporal é uma **pré-condição normativa**, mas NÃO constitui ainda um predicado operacional fechado.
+
+Um Belief Update SOMENTE PODE declarar que a evidência utilizada é temporalmente admissível quando a relação temporal normativa aplicável estiver explicitamente definida pelo contrato correspondente.
+
+Enquanto essa relação permanecer aberta:
+
+- a implementação MUST NOT inferir admissibilidade por igualdade entre campos temporais;
+- a implementação MUST NOT inferir admissibilidade pela ordenação entre relógios semanticamente distintos;
+- `t_registration`, `t_consumption`, `Ledger tick` ou ordem de registro NÃO PODEM ser usados como substitutos implícitos da relação normativa ainda não definida;
+- o tipo de ocorrência, isoladamente, NÃO constitui prova de admissibilidade em relação a `timestamp_logical`;
+- ausência de uma regra normativa suficiente MUST ser tratada como semântica temporal não resolvida, e NÃO como autorização para escolher uma convenção de implementação.
+
+D13 fecha os papéis temporais constitutivos das ocorrências, mas NÃO fecha a relação normativa entre esses papéis e o tempo lógico do processo consumidor.
+
+Qualquer futura validação automática de admissibilidade temporal MUST ser precedida pela definição explícita dessa relação normativa.
+
 ### B8.3 — Evidence Lineage Consistency
 
 **Status: DEFINED**
