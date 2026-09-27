@@ -58,7 +58,8 @@ São referências distintas:
 - `evidence_id` — identidade da evidência enquanto representação epistemicamente identificável;
 - `occurrence_id` — identidade de uma ocorrência histórica específica dessa evidência.
 
-O mecanismo criptográfico ou algorítmico concreto de geração desses identificadores permanece **UNKNOWN**.
+O mecanismo criptográfico ou algorítmico concreto de geração desses identificadores permanece **SUPERSEDED BY D12**.
+A decisão normativa posterior D12 define a construção de `evidence_id`.
 
 O contrato MUST NOT assumir:
 
@@ -74,7 +75,7 @@ A identidade cognitiva é definida pelo contrato de Cognitive Evidence e não he
 
 ## 3. Canonical Representation
 
-**Status:** REQUIRED
+**Status:** SUPERSEDED BY D12
 
 A Cognitive Evidence MUST possuir uma representação canônica determinística antes da implementação.
 
@@ -82,7 +83,8 @@ O objeto canônico deve conter somente os campos que constituem sua identidade o
 
 Provenance MUST NOT ser incorporada silenciosamente ao objeto canônico.
 
-A lista exata de campos canônicos permanece **UNKNOWN** e deve ser fechada antes da implementação.
+A lista exata de campos canônicos permanece **SUPERSEDED BY D12**.
+A representação canônica normativa foi posteriormente fechada por D12.
 
 A representação canônica não deve depender de:
 
@@ -166,7 +168,11 @@ Esses tempos NÃO são automaticamente equivalentes.
 
 Nem todos precisam existir em toda evidência.
 
-A representação temporal exata, os tipos, os campos obrigatórios e suas regras de validação permanecem **UNKNOWN** e devem ser definidos antes da implementação.
+A representação temporal exata, os tipos, os campos obrigatórios e suas regras de validação permanecem
+**PARTIALLY OPEN** onde não foram fechados por D13.
+
+D13 define especificamente os papéis temporais constitutivos das ocorrências e seu mapeamento para
+`normalized_occurrence_semantics`, sem fechar toda a semântica temporal da Cognitive Evidence.
 
 `timestamp_logical` dos demais blocos cognitivos e `Ledger tick` permanecem semanticamente separados desses tempos.
 
@@ -186,7 +192,8 @@ Cada ocorrência MUST possuir `occurrence_id` próprio.
 
 Uma mesma `evidence_id` MAY possuir múltiplas ocorrências quando o contrato determinar que representam a mesma evidência epistemicamente identificável em instâncias históricas distintas.
 
-O mecanismo concreto de geração de `occurrence_id` permanece **UNKNOWN**.
+O mecanismo concreto de geração de `occurrence_id` permanece **SUPERSEDED BY D13**.
+D13 define normativamente `occurrence_id` por SHA-256 da representação canônica da ocorrência.
 
 A equivalência semântica entre ocorrências e evidências deve ser determinística e explicitamente definida antes da implementação.
 
@@ -247,16 +254,28 @@ A rastreabilidade deve ser obtida por referências determinísticas.
 
 ## 13. Identity Equivalence
 
-**Status:** UNKNOWN
+**Status:** SUPERSEDED BY D10
 
-Ainda não está definido quando duas representações de evidência devem ser consideradas:
+Este bloco preserva a formulação histórica da questão de equivalência
+presente no contrato inicial.
 
-- a mesma evidência;
-- evidências distintas com conteúdo idêntico;
-- a mesma evidência observada em momentos diferentes;
-- ocorrências distintas do mesmo fato.
+A questão normativa foi posteriormente consolidada por D10.
 
-Essa semântica deve ser definida antes da implementação da identidade.
+D10 estabelece que equivalência semântica MUST ser decidida por meio
+das estruturas semânticas constitutivas aplicáveis ao tipo da
+Cognitive Evidence, independentemente de:
+
+- `evidence_id`;
+- `occurrence_id`;
+- hashes do Ledger;
+- serialização canônica;
+- provenance;
+- igualdade de conteúdo isoladamente;
+- igualdade de representação;
+- concordância de modelos externos ou LLMs.
+
+A formulação histórica acima NÃO permanece como requisito aberto.
+A consolidação normativa aplicável encontra-se em D10.
 
 ---
 
