@@ -304,3 +304,25 @@ authorization
 HEPHAESTUS
 
 O Belief State pode influenciar uma proposta, mas nunca substitui a autorizacao do TUU.
+
+## 21. Implementation Verification
+
+A implementação do Belief State foi verificada
+contra esta especificação no estado atual do Cognitive Core.
+
+- **B2 tests:** 18 passed;
+- **B7 integration tests:** 12 passed;
+- **full Cognitive Core suite:** 233 passed;
+- **integridade textual:** `git diff --check` passou;
+- a implementação preserva o objeto canônico de três campos;
+- `BELIEF_UNRESOLVED` permanece separado do campo numérico `belief`;
+- a proveniência permanece fora do objeto canônico;
+- a atualização cria um novo estado e preserva o predecessor;
+- rollback temporal é rejeitado;
+- metadados do Ledger não fazem parte do objeto canônico;
+- a representação cognitiva não concede autoridade operacional;
+- nenhum requisito de autorização foi ampliado por esta verificação;
+- nenhum novo mecanismo criptográfico foi introduzido;
+- nenhuma alteração no TUU ou no Ledger foi necessária;
+- o registro desta verificação não altera retroativamente os requisitos
+  normativos definidos nas seções anteriores.
