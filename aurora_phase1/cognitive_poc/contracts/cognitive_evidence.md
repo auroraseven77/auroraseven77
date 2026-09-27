@@ -101,21 +101,45 @@ A representação canônica não deve depender de:
 
 ## 4. Evidence Content
 
-**Status:** REQUIRED
+**Status:** DEFINED
 
 A Cognitive Evidence MUST separar conteúdo epistemicamente observado de sua provenance.
 
-A representação poderá utilizar:
+A representação do conteúdo é uma camada de transporte, armazenamento e reconstrução do conteúdo
+epistemicamente relevante. Ela MUST permanecer semanticamente separada da identidade da evidência,
+da provenance, da ocorrência e de metadados operacionais.
+
+A representação MAY utilizar, quando compatível com a semântica do tipo:
 
 - conteúdo diretamente incorporado;
 - referência determinística a conteúdo externo;
-- combinação de conteúdo e referência.
+- combinação de conteúdo incorporado e referência determinística.
 
-A escolha normativa entre essas alternativas permanece **UNKNOWN**.
+Nenhuma dessas formas de representação define, por si só, identidade ou equivalência semântica.
 
-Nenhuma alternativa deve ser assumida por convenção.
+A escolha da forma de representação MAY depender do tipo semântico e de suas regras constitutivas.
+Nenhuma forma deve ser assumida por convenção quando a semântica do tipo exigir uma regra diferente.
 
-A representação do conteúdo deve permitir reconstrução determinística quando a evidência for consumida por outro bloco cognitivo.
+Toda representação utilizada por um processo cognitivo MUST permitir resolução determinística do conteúdo
+necessário para aquele processo.
+
+Uma referência externa MUST ser estável e determinística o suficiente para permitir a resolução do conteúdo
+correspondente segundo as regras aplicáveis.
+
+Uma referência ausente, ambígua, inválida ou não resolvível MUST NOT ser silenciosamente substituída por
+inferência, conteúdo aproximado ou outra representação não autorizada.
+
+A indisponibilidade posterior de uma representação externa MUST NOT alterar retroativamente o conteúdo
+histórico, o `evidence_id`, a ocorrência histórica ou qualquer outro artefato já registrado.
+
+Quando o conteúdo necessário não puder ser deterministicamente reconstruído, a evidência MUST ser tratada
+como não resolvível para aquele consumo, sem fabricação ou substituição silenciosa do conteúdo.
+
+A representação utilizada para transportar ou reconstruir o conteúdo MUST NOT ser incorporada à identidade
+epistêmica apenas por ser a representação escolhida.
+
+A identidade da Cognitive Evidence permanece determinada pela estrutura semântica constitutiva aplicável,
+conforme D10 e D12.
 
 ---
 
@@ -334,7 +358,7 @@ Este contrato não define:
 
 1. Qual mecanismo de identidade será utilizado?
 2. Quais campos pertencem ao objeto canônico?
-3. Conteúdo inline, referência ou ambos?
+3. Conteúdo inline, referência ou ambos? **SUPERSEDED BY B8.4.**
 4. Qual a semântica exata de cada campo temporal?
 5. Quando duas evidências são semanticamente equivalentes?
 6. Evidências idênticas em ocorrências diferentes possuem a mesma identidade?
@@ -467,9 +491,14 @@ Accordingly:
   occurrence taxonomy, and canonical occurrence representation
   statements.
 
-This rule does not close sufficiency, confidence, external-content
-representation, or other questions that remain outside those closure
-decisions.
+This rule does not close sufficiency, confidence, or other questions
+that remain outside those closure decisions.
+
+The external-content representation question was subsequently closed
+by B8.4. B8.4 defines representation as a transport, storage, and
+reconstruction layer that is type-governed and semantically separate
+from epistemic identity, provenance, occurrence, and operational
+metadata.
 
 D10 formalizes the typed constitutive semantics required by the
 semantic relation established in D03-R02.
