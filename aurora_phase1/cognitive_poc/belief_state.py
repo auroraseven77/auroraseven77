@@ -47,6 +47,12 @@ class BeliefState:
             raise ValueError("belief must be within [0.0, 1.0]")
 
     @property
+    def belief_identity(self) -> str:
+        """Stable identity of the canonical belief state."""
+        from aurora_phase1.core.crypto import hash_object
+        return hash_object(self.canonical_object)
+
+    @property
     def canonical_object(self) -> dict[str, Any]:
         """Return exactly the canonical fields covered by the state."""
         return {
