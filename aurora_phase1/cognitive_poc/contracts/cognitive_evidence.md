@@ -63,11 +63,11 @@ A decisão normativa posterior D12 define a construção de `evidence_id`.
 
 O contrato MUST NOT assumir:
 
-`Cognitive Evidence Identity = Ledger evidence_hash`
+`Superseded draft statement: Cognitive Evidence Identity = Ledger evidence_hash`
 
 Também MUST NOT assumir:
 
-`Cognitive Evidence Identity = Ledger entry_hash`
+`Superseded draft statement: Cognitive Evidence Identity = Ledger entry_hash`
 
 A identidade cognitiva é definida pelo contrato de Cognitive Evidence e não herdada por analogia de outros artefatos.
 
