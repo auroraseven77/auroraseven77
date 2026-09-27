@@ -75,3 +75,35 @@ def test_wrong_hash_is_detected():
 
     result = verify_commitment(commitment.canonical_object, wrong_hash)
     assert result == "COMMITMENT_HASH_MISMATCH"
+
+def test_wrong_hypothesis_id_type_is_malformed():
+    from aurora_phase1.cognitive_poc.prediction_commitment import verify_commitment
+
+    commitment = _commitment()
+    malformed = dict(commitment.canonical_object)
+    malformed["hypothesis_id"] = 123
+
+    result = verify_commitment(malformed, commitment.prediction_hash)
+    assert result == "COMMITMENT_MALFORMED"
+
+
+def test_wrong_timestamp_type_is_malformed():
+    from aurora_phase1.cognitive_poc.prediction_commitment import verify_commitment
+
+    commitment = _commitment()
+    malformed = dict(commitment.canonical_object)
+    malformed["timestamp_logical"] = "10"
+
+    result = verify_commitment(malformed, commitment.prediction_hash)
+    assert result == "COMMITMENT_MALFORMED"
+
+
+def test_boolean_timestamp_is_malformed():
+    from aurora_phase1.cognitive_poc.prediction_commitment import verify_commitment
+
+    commitment = _commitment()
+    malformed = dict(commitment.canonical_object)
+    malformed["timestamp_logical"] = True
+
+    result = verify_commitment(malformed, commitment.prediction_hash)
+    assert result == "COMMITMENT_MALFORMED"

@@ -154,4 +154,4 @@ Devem existir testes para:
 - estados de verificação definidos;
 - autoridade definida;
 - testes definidos;
-- nenhuma implementação de produção neste bloco.
+- a especificação original do Block 1 não inclui implementação de produção; a implementação posterior deve permanecer separada e ser verificada contra este contrato.
