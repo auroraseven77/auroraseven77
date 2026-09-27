@@ -211,3 +211,27 @@ Error Attribution
 Block 3 answers: **"Did the observed result differ from the committed prediction, according to an explicit comparison rule?"**
 
 Block 4 answers the separate question: **"What may have caused the discrepancy?"**
+
+## 16. Implementation Verification
+
+A implementação do Prediction Error foi verificada contra esta especificação no estado atual do Cognitive Core.
+
+- **B3 tests:** 10 passed;
+- **B4 tests:** 13 passed;
+- **B3 + B4 tests:** 23 passed;
+- **full Cognitive Core suite:** 233 passed;
+- **integridade textual:** `git diff --check` passou;
+- **estado do repositório:** `main` limpo e sincronizado com `origin/main`;
+- os estados de comparação permanecem restritos a `MATCH`, `MISMATCH` e `NOT_COMPARABLE`;
+- `UNKNOWN` e `NOT_YET_DECIDABLE` permanecem separados dos resultados de comparação resolvidos;
+- a representação resolvida mantém os campos canônicos `prediction_hash`, `observed_value`, `outcome`, `error` e `timestamp_logical`;
+- a proveniência preserva a identidade da regra de comparação, a fonte da observação e os limites temporais da comparação;
+- a comparação exige ordenação temporal estrita entre a previsão comprometida e a comparação observacional;
+- os objetos relevantes permanecem imutáveis;
+- o Prediction Error referencia o `prediction_hash` da Prediction Commitment e não introduz um novo mecanismo criptográfico;
+- metadados de Ledger permanecem fora da representação canônica do Prediction Error;
+- a integração com Block 4 preserva a separação entre detecção de discrepância e atribuição causal;
+- a implementação não concede autoridade de execução, autorização ou alteração de política;
+- nenhuma alteração no TUU ou no Ledger foi necessária;
+- nenhum requisito de autorização foi ampliado por esta verificação;
+- este registro não altera retroativamente os requisitos normativos definidos nas seções anteriores.
