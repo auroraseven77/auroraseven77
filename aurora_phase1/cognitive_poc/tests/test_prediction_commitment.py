@@ -116,3 +116,78 @@ def test_original_commitment_is_not_mutated():
     assert commitment.prediction_hash == original_hash
     assert commitment.canonical_object["prediction"] == {"temperature": 42}
     assert commitment.canonical_object["timestamp_logical"] == 10
+
+def test_prediction_and_conditions_are_deeply_immutable():
+    from aurora_phase1.cognitive_poc.prediction_commitment import PredictionCommitment
+
+    prediction = {"nested": {"value": 42}, "items": [{"x": 1}]}
+    conditions = {"nested": {"condition": "test"}}
+
+    commitment = PredictionCommitment(
+        hypothesis_id="H-001",
+        prediction=prediction,
+        conditions=conditions,
+        timestamp_logical=10,
+    )
+
+    original_hash = commitment.prediction_hash
+    original_prediction = commitment.canonical_object["prediction"]
+    original_conditions = commitment.canonical_object["conditions"]
+
+    prediction["nested"]["value"] = 99
+    prediction["items"][0]["x"] = 2
+    conditions["nested"]["condition"] = "changed"
+
+    assert commitment.prediction_hash == original_hash
+    assert commitment.canonical_object["prediction"] == original_prediction
+    assert commitment.canonical_object["conditions"] == original_conditions
+
+
+def test_invalid_constructor_types_are_rejected():
+    from aurora_phase1.cognitive_poc.prediction_commitment import PredictionCommitment
+
+    with pytest.raises(ValueError):
+        PredictionCommitment(
+            hypothesis_id=123,
+            prediction={},
+            conditions={},
+            timestamp_logical=10,
+        )
+
+    with pytest.raises(ValueError):
+        PredictionCommitment(
+            hypothesis_id="H-001",
+            prediction={},
+            conditions={},
+            timestamp_logical="10",
+        )
+
+    with pytest.raises(ValueError):
+        PredictionCommitment(
+            hypothesis_id="H-001",
+            prediction={},
+            conditions={},
+            timestamp_logical=True,
+        )
+
+
+def test_prediction_hash_is_independent_of_key_order():
+    from aurora_phase1.cognitive_poc.prediction_commitment import (
+        PredictionCommitment,
+    )
+
+    first = PredictionCommitment(
+        hypothesis_id="H-ORDER",
+        prediction={"a": 1, "b": {"x": 2, "y": 3}},
+        conditions={"c": True, "d": 4},
+        timestamp_logical=10,
+    )
+
+    second = PredictionCommitment(
+        hypothesis_id="H-ORDER",
+        prediction={"b": {"y": 3, "x": 2}, "a": 1},
+        conditions={"d": 4, "c": True},
+        timestamp_logical=10,
+    )
+
+    assert first.prediction_hash == second.prediction_hash

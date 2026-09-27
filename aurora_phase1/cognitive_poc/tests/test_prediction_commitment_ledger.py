@@ -98,3 +98,40 @@ def test_prediction_commitment_event_preserves_chain_integrity(tmp_path):
     assert result.chain_integrity is True
     assert result.total_blocks == 1
     assert result.failed_seq is None
+
+def test_prediction_commitment_is_reconstruction_compatible(tmp_path):
+    from aurora_phase1.core.reconstruct import WorldReconstructor
+
+    ledger = Ledger(tmp_path / "ledger.jsonl")
+
+    commitment = PredictionCommitment(
+        hypothesis_id="H-B1",
+        prediction={"value": 42},
+        conditions={"condition": "test"},
+        timestamp_logical=7,
+    )
+
+    ledger.add_block(
+        "PREDICTION_COMMITTED",
+        {
+            "prediction_hash": commitment.prediction_hash,
+            "commitment": commitment.canonical_object,
+        },
+        tick=7,
+    )
+
+    result = WorldReconstructor(ledger).reconstruct()
+
+    assert result.success is True
+    assert result.blocks_processed == 1
+    assert result.stopped_at_seq == 0
+
+    # PREDICTION_COMMITTED é epistemicamente registrável,
+    # mas não altera o world_state reconstruído.
+    assert result.state["tick"] == 0
+    assert result.state["completed_cycles"] == 0
+    assert result.state["observations"] == {}
+    assert result.state["hypotheses_sedimented"] == []
+    assert result.state["rejected_attempts"] == 0
+
+    assert "PREDICTION_COMMITTED" in result.diagnostic
