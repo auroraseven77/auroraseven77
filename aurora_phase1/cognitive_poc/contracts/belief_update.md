@@ -1,6 +1,6 @@
 # B7 — Belief Update Contract
 
-**Status:** DRAFT / BLOCK 7
+**Status:** VERIFIED
 **Version:** 0.1
 **Scope:** `aurora_phase1/cognitive_poc`
 
@@ -985,6 +985,6 @@ B7 poderá ser considerado concluído somente quando existir evidência verific�
 
 **End of Contract**
 
-**Status:** DRAFT / BLOCK 7
-**Implementation:** NOT STARTED
-**Verification:** NOT STARTED
+**Status:** VERIFIED
+**Implementation:** IMPLEMENTED
+**Verification:** VERIFIED
