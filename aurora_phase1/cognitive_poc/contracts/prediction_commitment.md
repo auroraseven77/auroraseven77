@@ -155,3 +155,18 @@ Devem existir testes para:
 - autoridade definida;
 - testes definidos;
 - a especificação original do Block 1 não inclui implementação de produção; a implementação posterior deve permanecer separada e ser verificada contra este contrato.
+
+## 13. Implementation Verification
+
+A implementação posterior do Prediction Commitment foi verificada
+contra esta especificação no PR #25.
+
+- **Merge commit:** `40dee2c324de79da514584ca0bb01c9f3e0b2f51`;
+- **testes específicos do B1:** 25 passed;
+- **suite completa do Cognitive Core:** 233 passed;
+- **integridade textual:** `git diff --check` passou;
+- a implementação permanece separada da especificação normativa;
+- esta verificação não altera o status histórico `DRAFT / BLOCK 1`
+  desta especificação;
+- nenhum requisito de autoridade, hashing, Ledger ou TUU foi ampliado
+  por este registro.
