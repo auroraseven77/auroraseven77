@@ -198,6 +198,16 @@ A representação temporal exata, os tipos, os campos obrigatórios e suas regra
 D13 define especificamente os papéis temporais constitutivos das ocorrências e seu mapeamento para
 `normalized_occurrence_semantics`, sem fechar toda a semântica temporal da Cognitive Evidence.
 
+A definição de admissibilidade temporal entre uma ocorrência de evidência e o `timestamp_logical` de um
+processo consumidor permanece fora do fechamento de D13.
+
+Assim, a implementação MUST NOT converter os papéis temporais definidos por D13 em uma regra operacional
+de admissibilidade sem uma relação normativa explícita.
+
+Enquanto essa relação permanecer aberta, qualquer validação automática deve tratar a admissibilidade como
+não resolvida, sem inferir equivalência, precedência ou disponibilidade suficiente a partir de convenções
+locais de implementação.
+
 `timestamp_logical` dos demais blocos cognitivos e `Ledger tick` permanecem semanticamente separados desses tempos.
 
 Uma ocorrência específica deve possuir `occurrence_id` próprio, mesmo quando duas ocorrências estejam associadas ao mesmo `evidence_id`.
