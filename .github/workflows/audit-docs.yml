@@ -41,13 +41,23 @@ jobs:
         run: bash -n scripts/reproduce-b1-gen-01a.sh
 
   b1-gen-tests:
-    name: B1-GEN-01A isolated unit tests
+    name: B1-GEN-01A tests (conditional on published suite)
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('experiments/B1-GEN-01A/tests/**/*.py') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Detect isolated test suite
+        id: detect
+        shell: bash
+        run: |
+          if find experiments/B1-GEN-01A/tests -type f -name '*.py' -print -quit 2>/dev/null | grep -q .; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::B1-GEN-01A suite not published; tests are blocked, not passed."
+          fi
       - name: Run isolated unit tests
+        if: steps.detect.outputs.has_tests == 'true'
         run: bash scripts/reproduce-b1-gen-01a.sh
