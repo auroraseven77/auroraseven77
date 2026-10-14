@@ -153,3 +153,17 @@ O texto apresenta uma arquitetura conceitual baseada em **vetores fractais, TriG
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=120&section=footer" />
 
 </div>
+
+
+---
+
+## TUU / Aurora — estado da auditoria e reprodução
+
+O estado dos experimentos e das evidências deve ser lido como um registro auditável, separado das afirmações de perfil e dos resultados científicos ainda não demonstrados.
+
+- [Matriz de estado dos componentes](docs/audits/COMPONENT-STATUS.md)
+- [Índice de evidências, commits e lacunas](docs/audits/EVIDENCE-INDEX.md)
+- [Reprodução: pré-requisitos, comando e limitações](docs/audits/REPRODUCIBILITY.md)
+- [Snapshot de auditoria](STATUS.md)
+
+**Regra de leitura:** resultados locais descritos como reportados não equivalem a uma reprodução independente. B1-GEN-01A permanece bloqueado neste repositório até que seus artefatos e testes sejam publicados e verificados. O núcleo `b1_motor/` permanece fora do escopo de alterações desta auditoria.
