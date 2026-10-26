@@ -108,7 +108,7 @@ def test_localhost_is_canonicalized_to_numeric_loopback(monkeypatch):
     assert report["state"] == "HEALTH_REACHABLE"
 
 
-def test_ipv6_loopback_is_bracketed_for_http_client(monkeypatch):
+def test_ipv6_loopback_passes_raw_address_to_http_connection(monkeypatch):
     reset_fake()
     FakeConnection.outcomes = [200, 200]
     monkeypatch.setattr(http.client, "HTTPConnection", FakeConnection)
@@ -116,8 +116,17 @@ def test_ipv6_loopback_is_bracketed_for_http_client(monkeypatch):
     report = probe_health(host="::1")
 
     assert report["target"]["host"] == "::1"
-    assert FakeConnection.hosts == ["[::1]", "[::1]"]
+    assert FakeConnection.hosts == ["::1", "::1"]
     assert report["state"] == "HEALTH_REACHABLE"
+
+
+def test_real_http_connection_formats_ipv6_host_header_without_bracketed_socket_host():
+    connection = http.client.HTTPConnection("::1", 8787, timeout=0.2)
+    try:
+        assert connection.host == "::1"
+        assert connection._get_hostport() == "[::1]:8787"
+    finally:
+        connection.close()
 
 
 def test_refused_connection_is_reported_as_not_connected(monkeypatch):
