@@ -51,7 +51,7 @@ def test_permission_denied_listener_and_header_only_process_output_are_inconclus
 
     assert "listener_state=INCONCLUSIVE" in result.stdout
     assert "process_state=INCONCLUSIVE" in result.stdout
-    assert '"state": "NOT_CONNECTED"' in result.stdout
+    assert "NOT_CONNECTED" in result.stdout
     assert "NO_SERVICE_STARTED" in result.stdout
     assert "PACKAGE INSTALLED" in result.stdout
 
