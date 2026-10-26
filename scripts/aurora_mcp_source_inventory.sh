@@ -17,6 +17,8 @@ MAX_FILES_PER_ROOT = 64
 MAX_FILE_BYTES = 4 * 1024 * 1024
 CHUNK_BYTES = 64 * 1024
 SOURCE_SUFFIXES = {".js", ".cjs", ".mjs", ".py"}
+SAFE_METADATA_VALUE = re.compile(r"^[A-Za-z0-9@._/+~-]{1,160}$")
+SAFE_SCRIPT_NAME = re.compile(r"^[A-Za-z0-9:_-]{1,80}$")
 SKIP_NAME_PARTS = ("token", "secret", "credential", "password", "private", "auth")
 
 
@@ -31,12 +33,30 @@ def skipped_name(name: str) -> bool:
     )
 
 
-def digest_file(path: Path) -> str:
+STATIC_MARKERS = {
+    "process_execution": re.compile(r"\b(?:subprocess|popen|child_process|execsync|execfile|exec|spawn|fork|os\.system)\b"),
+    "network_client": re.compile(r"\b(?:fetch|axios|requests\.|urllib|http\.client|socket\.)"),
+    "network_listener": re.compile(r"\b(?:createserver|\.listen\s*\(|httpserver|socketserver)\b"),
+    "filesystem_mutation": re.compile(r"\b(?:writefile(?:sync)?|write_bytes|write_text|unlink(?:sync)?|rmtree|mkdir|rename|replace)\b"),
+    "environment_or_credential_access": re.compile(r"\b(?:process\.env|os\.environ|getenv|dotenv|credential|password|api[_-]?key|bearer)\b"),
+    "dynamic_code": re.compile(r"\b(?:eval|new\s+function|compile\s*\()\b"),
+    "mcp_tool_or_protocol": re.compile(r"\b(?:tools/list|tools/call|registertool|listtoolsrequestschema|calltoolrequestschema|modelcontextprotocol|mcpserver)\b"),
+    "authorization_or_approval": re.compile(r"\b(?:authorize|authorization|authenticate|approval|allowlist|deny|default.?deny)\b"),
+}
+
+
+def digest_and_markers(path: Path) -> tuple[str, dict]:
+    """Hash raw bytes and count heuristic marker-bearing lines without exposing code."""
     digest = hashlib.sha256()
+    counts = {name: 0 for name in STATIC_MARKERS}
     with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(CHUNK_BYTES), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        for raw_line in stream:
+            digest.update(raw_line)
+            line = raw_line.decode("utf-8", errors="replace").lower()
+            for name, pattern in STATIC_MARKERS.items():
+                if pattern.search(line):
+                    counts[name] += 1
+    return digest.hexdigest(), {name: count for name, count in counts.items() if count}
 
 
 def safe_package_metadata(path: Path) -> dict:
@@ -50,12 +70,12 @@ def safe_package_metadata(path: Path) -> dict:
         selected = {}
         for key in ("name", "version", "type", "main"):
             value = data.get(key)
-            if isinstance(value, str) and value and len(value) <= 160:
+            if isinstance(value, str) and SAFE_METADATA_VALUE.fullmatch(value):
                 selected[key] = value
         scripts = data.get("scripts")
         if isinstance(scripts, dict):
             selected["script_names"] = sorted(
-                key for key in scripts if isinstance(key, str) and len(key) <= 80
+                key for key in scripts if isinstance(key, str) and SAFE_SCRIPT_NAME.fullmatch(key)
             )[:32]
         selected["state"] = "METADATA_ALLOWLISTED"
         return selected
@@ -114,10 +134,14 @@ for label in ("mcp-aurora", "mcp-aurora-server"):
                 if size > MAX_FILE_BYTES:
                     entry["state"] = "TOO_LARGE_NOT_HASHED"
                 else:
-                    entry["sha256"] = digest_file(path)
-                    entry["state"] = "HASHED_SOURCE_ONLY"
                     if path.name == "package.json":
+                        entry["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+                        entry["state"] = "HASHED_MANIFEST_ONLY"
                         item["package_metadata"] = safe_package_metadata(path)
+                    else:
+                        entry["sha256"], markers = digest_and_markers(path)
+                        entry["state"] = "HASHED_SOURCE_ONLY"
+                        entry["static_marker_lines"] = markers
         except OSError as exc:
             entry["state"] = "UNAVAILABLE"
             entry["error_type"] = type(exc).__name__
@@ -136,6 +160,7 @@ print(json.dumps({
         "scope": "top-level regular .js/.cjs/.mjs/.py files plus package.json only",
     },
     "side_effects": "filesystem reads only; no network, no writes, no process start, no package scripts, no logs, env files, package-lock files, backups, or JSONL ledgers read",
-    "disclosure": "prints file names, sizes, SHA-256 digests and allowlisted package metadata; never prints source contents or package script command values",
+    "static_triage": "heuristic counts of source lines matching fixed execution/network/listener/filesystem/environment/dynamic-code/MCP/authorization marker patterns; counts are not proof of behavior or vulnerability",
+    "disclosure": "prints file names, sizes, SHA-256 digests, marker line counts and allowlisted package metadata; never prints source contents or package script command values",
 }, indent=2, sort_keys=True))
 PY

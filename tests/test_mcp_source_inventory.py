@@ -44,6 +44,18 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
     root.mkdir()
     source = b"SOURCE_SENTINEL_do_not_print\nconsole.log('demo');\n"
     (root / "index.js").write_bytes(source)
+    (root / "bridge.cjs").write_text(
+        "const child = require('child_process');\n"
+        "const server = http.createServer(app);\n"
+        "server.listen(8787);\n"
+        "fs.writeFileSync('demo', 'payload');\n"
+        "const token = process.env.AURORA_TOKEN;\n"
+        "const value = eval('1 + 1');\n"
+        "const response = await fetch('https://example.invalid');\n"
+        "registerTool('read');\n"
+        "authorize('read');\n",
+        encoding="utf-8",
+    )
     (root / "package.json").write_text(
         json.dumps({
             "name": "safe-demo",
@@ -70,13 +82,27 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
     source_entry = _file_entry(document, "~/mcp-aurora-server", "index.js")
     assert source_entry["sha256"] == hashlib.sha256(source).hexdigest()
     assert source_entry["state"] == "HASHED_SOURCE_ONLY"
-    _file_entry(document, "~/mcp-aurora-server", "package.json")
+    triage_entry = _file_entry(document, "~/mcp-aurora-server", "bridge.cjs")
+    assert triage_entry["state"] == "HASHED_SOURCE_ONLY"
+    marker_lines = triage_entry["static_marker_lines"]
+    assert marker_lines["process_execution"] >= 1
+    assert marker_lines["network_client"] >= 1
+    assert marker_lines["network_listener"] >= 1
+    assert marker_lines["filesystem_mutation"] >= 1
+    assert marker_lines["environment_or_credential_access"] >= 1
+    assert marker_lines["dynamic_code"] >= 1
+    assert marker_lines["mcp_tool_or_protocol"] >= 1
+    assert marker_lines["authorization_or_approval"] >= 1
+    package_entry = _file_entry(document, "~/mcp-aurora-server", "package.json")
+    assert package_entry["state"] == "HASHED_MANIFEST_ONLY"
     root_entry = next(x for x in document["roots"] if x["root"] == "~/mcp-aurora-server")
     assert root_entry["package_metadata"]["name"] == "safe-demo"
     assert root_entry["package_metadata"]["script_names"] == ["start"]
     for sentinel in (
         "COMMAND_SENTINEL_should_never_print",
         "SOURCE_SENTINEL",
+        "require('child_process')",
+        "AURORA_TOKEN",
         "LOCK_SENTINEL",
         "LEDGER_SENTINEL",
         "LOG_SENTINEL",
