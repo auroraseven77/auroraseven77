@@ -36,10 +36,16 @@ def store_evidence(
     full SHA-256 is verified on reuse. Exclusive creation avoids overwriting a
     destination that appears after the initial existence check.
     """
+    if not isinstance(raw, bytes):
+        raise TypeError("raw must be bytes")
     safe_kind = _validate_kind(kind)
     digest = hashlib.sha256(raw).hexdigest()
     directory = Path(root)
+    if directory.is_symlink():
+        raise RuntimeError("evidence root must not be a symbolic link")
     directory.mkdir(parents=True, exist_ok=True)
+    if directory.is_symlink() or not directory.is_dir():
+        raise RuntimeError("evidence root must be a regular directory")
     path = directory / f"{safe_kind}_{digest[:12]}.bin"
     if path.is_symlink():
         raise RuntimeError("evidence destination must not be a symbolic link")
