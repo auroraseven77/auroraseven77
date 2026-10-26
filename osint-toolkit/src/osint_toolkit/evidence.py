@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 _KIND_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_HASH_CHUNK_SIZE = 64 * 1024
 
 
 def _validate_kind(kind: str) -> str:
@@ -14,12 +15,21 @@ def _validate_kind(kind: str) -> str:
     return kind
 
 
+def _sha256_file(path: Path) -> str:
+    """Hash a regular file incrementally so verification memory stays bounded."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(_HASH_CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _verify_existing_path(path: Path, expected_digest: str) -> None:
     if path.is_symlink():
         raise RuntimeError("evidence destination must not be a symbolic link")
     if not path.exists() or not path.is_file():
         raise RuntimeError("existing evidence destination is not a regular file")
-    actual_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    actual_digest = _sha256_file(path)
     if actual_digest != expected_digest:
         raise RuntimeError("existing evidence path does not match expected full SHA-256")
 
