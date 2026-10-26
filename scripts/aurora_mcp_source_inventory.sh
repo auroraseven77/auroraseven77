@@ -7,12 +7,17 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 
-python3 - <<'PY'
+python3 - "$@" <<'PY'
+import argparse
 import hashlib
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+
+parser = argparse.ArgumentParser(description="Bounded read-only Aurora MCP source inventory")
+parser.add_argument("--summary", action="store_true", help="emit compact root summaries and manual-review candidates")
+args = parser.parse_args()
 
 MAX_FILES_PER_ROOT = 64
 MAX_FILE_BYTES = 4 * 1024 * 1024
@@ -175,7 +180,7 @@ for label in ("mcp-aurora", "mcp-aurora-server"):
         item["files"].append(entry)
     roots.append(item)
 
-print(json.dumps({
+report = {
     "schema_version": "1.0",
     "timestamp_utc": datetime.now(timezone.utc).isoformat(),
     "state": "COMPLETED_READ_ONLY",
@@ -191,5 +196,51 @@ print(json.dumps({
     "manual_review": "manual_review_suggested is a triage flag for selected marker categories, not a vulnerability verdict or an execution decision",
     "max_line_numbers_per_marker": MAX_LINE_NUMBERS_PER_MARKER,
     "disclosure": "prints file names, sizes, SHA-256 digests, bounded marker line numbers/counts and allowlisted package metadata; never prints source contents or package script command values",
-}, indent=2, sort_keys=True))
+}
+if args.summary:
+    summarized_roots = []
+    for root_item in roots:
+        entries = root_item.get("files", [])
+        source_entries = [entry for entry in entries if entry.get("state") == "HASHED_SOURCE_ONLY"]
+        manifest_entries = [entry for entry in entries if entry.get("state") == "HASHED_MANIFEST_ONLY"]
+        candidates = []
+        for entry in source_entries:
+            if not entry.get("manual_review_suggested"):
+                continue
+            candidates.append({
+                "name": entry.get("name"),
+                "sha256": entry.get("sha256"),
+                "manual_review_marker_categories": entry.get("manual_review_marker_categories", []),
+                "static_marker_lines": entry.get("static_marker_lines", {}),
+                "static_marker_line_numbers": entry.get("static_marker_line_numbers", {}),
+                "static_marker_lines_truncated": entry.get("static_marker_lines_truncated", {}),
+            })
+        marker_file_counts = {
+            category: sum(category in entry.get("static_marker_lines", {}) for entry in source_entries)
+            for category in STATIC_MARKERS
+        }
+        summarized_roots.append({
+            "root": root_item.get("root"),
+            "state": root_item.get("state"),
+            "git_metadata": root_item.get("git_metadata", "NOT_TESTED"),
+            "source_files_hashed": len(source_entries),
+            "manifests_hashed": len(manifest_entries),
+            "files_not_hashed_or_skipped": sum(
+                entry.get("state") not in {"HASHED_SOURCE_ONLY", "HASHED_MANIFEST_ONLY"}
+                for entry in entries
+            ),
+            "truncated": root_item.get("truncated", False),
+            "marker_file_counts": {
+                key: value for key, value in marker_file_counts.items() if value
+            },
+            "manual_review_candidate_count": len(candidates),
+            "manual_review_candidates": candidates,
+        })
+    report["roots"] = summarized_roots
+    report["view"] = "SUMMARY"
+    report["summary_policy"] = "includes only review candidates with bounded line numbers and hashes; omits per-file entries without selected review markers; no source text is emitted"
+else:
+    report["view"] = "DETAIL"
+print(json.dumps(report, indent=2, sort_keys=True))
+
 PY

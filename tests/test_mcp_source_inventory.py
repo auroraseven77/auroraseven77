@@ -23,11 +23,11 @@ def _file_entry(document: dict, root_name: str, filename: str) -> dict:
     return next(item for item in root["files"] if item["name"] == filename)
 
 
-def _run(home: Path) -> subprocess.CompletedProcess[str]:
+def _run(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["HOME"] = str(home)
     return subprocess.run(
-        ["/bin/bash", str(SCRIPT)],
+        ["/bin/bash", str(SCRIPT), *args],
         cwd=REPOSITORY,
         env=env,
         text=True,
@@ -136,6 +136,48 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
     assert "package.json" in document["side_effects"]
     assert "never emits or executes package script command values" in document["side_effects"]
 
+
+
+def test_summary_mode_reports_only_review_candidates_and_preserves_files(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    root = home / "mcp-aurora-server"
+    root.mkdir()
+    source = (
+        "const child = require('child_process');\\n"
+        "const server = http.createServer(app);\\n"
+        "server.listen(8787);\\n"
+        "fs.writeFileSync('demo', 'payload');\\n"
+        "const value = eval('TRIAGE_SECRET_SENTINEL');\\n"
+    )
+    (root / "bridge.cjs").write_text(source, encoding="utf-8")
+    (root / "quiet.js").write_text("const x = 1;\\n", encoding="utf-8")
+    (root / "package.json").write_text(
+        json.dumps({"name": "summary-demo", "scripts": {"start": "PRIVATE_COMMAND_SENTINEL"}}),
+        encoding="utf-8",
+    )
+    before = {p.name: p.read_bytes() for p in root.iterdir() if p.is_file()}
+
+    result = _run(home, "--summary")
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    assert document["view"] == "SUMMARY"
+    summary = next(item for item in document["roots"] if item["root"] == "~/mcp-aurora-server")
+    assert summary["source_files_hashed"] == 2
+    assert summary["manifests_hashed"] == 1
+    assert summary["manual_review_candidate_count"] == 1
+    assert "files" not in summary
+    candidate = summary["manual_review_candidates"][0]
+    assert candidate["name"] == "bridge.cjs"
+    assert candidate["static_marker_line_numbers"]["network_listener"] == [2, 3]
+    assert candidate["static_marker_line_numbers"]["filesystem_mutation"] == [4]
+    assert candidate["static_marker_line_numbers"]["dynamic_code"] == [5]
+    assert summary["marker_file_counts"]["process_execution"] == 1
+    assert "quiet.js" not in result.stdout
+    assert "TRIAGE_SECRET_SENTINEL" not in result.stdout
+    assert "PRIVATE_COMMAND_SENTINEL" not in result.stdout
+    after = {p.name: p.read_bytes() for p in root.iterdir() if p.is_file()}
+    assert after == before
 
 def test_static_marker_line_numbers_are_bounded(tmp_path: Path):
     home = tmp_path / "home"
