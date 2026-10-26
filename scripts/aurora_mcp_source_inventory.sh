@@ -46,18 +46,38 @@ STATIC_MARKERS = {
 }
 
 
-def digest_and_markers(path: Path) -> tuple[str, dict]:
-    """Hash raw bytes and count heuristic marker-bearing lines without exposing code."""
+MAX_LINE_NUMBERS_PER_MARKER = 8
+MANUAL_REVIEW_MARKERS = {
+    "process_execution",
+    "network_listener",
+    "filesystem_mutation",
+    "environment_or_credential_access",
+    "dynamic_code",
+}
+
+
+def digest_and_markers(path: Path) -> tuple[str, dict, dict, dict]:
+    """Hash raw bytes and collect bounded marker line numbers without exposing code."""
     digest = hashlib.sha256()
     counts = {name: 0 for name in STATIC_MARKERS}
+    line_numbers = {name: [] for name in STATIC_MARKERS}
     with path.open("rb") as stream:
-        for raw_line in stream:
+        for line_number, raw_line in enumerate(stream, start=1):
             digest.update(raw_line)
             line = raw_line.decode("utf-8", errors="replace").lower()
             for name, pattern in STATIC_MARKERS.items():
                 if pattern.search(line):
                     counts[name] += 1
-    return digest.hexdigest(), {name: count for name, count in counts.items() if count}
+                    if len(line_numbers[name]) < MAX_LINE_NUMBERS_PER_MARKER:
+                        line_numbers[name].append(line_number)
+    active = {name: count for name, count in counts.items() if count}
+    locations = {name: line_numbers[name] for name in active}
+    truncated = {
+        name: counts[name] > len(line_numbers[name])
+        for name in active
+        if counts[name] > len(line_numbers[name])
+    }
+    return digest.hexdigest(), active, locations, truncated
 
 
 def safe_package_metadata(path: Path) -> dict:
@@ -140,9 +160,15 @@ for label in ("mcp-aurora", "mcp-aurora-server"):
                         entry["state"] = "HASHED_MANIFEST_ONLY"
                         item["package_metadata"] = safe_package_metadata(path)
                     else:
-                        entry["sha256"], markers = digest_and_markers(path)
+                        entry["sha256"], markers, locations, truncated = digest_and_markers(path)
                         entry["state"] = "HASHED_SOURCE_ONLY"
                         entry["static_marker_lines"] = markers
+                        entry["static_marker_line_numbers"] = locations
+                        entry["static_marker_lines_truncated"] = truncated
+                        review_reasons = sorted(MANUAL_REVIEW_MARKERS.intersection(markers))
+                        entry["manual_review_suggested"] = bool(review_reasons)
+                        if review_reasons:
+                            entry["manual_review_marker_categories"] = review_reasons
         except OSError as exc:
             entry["state"] = "UNAVAILABLE"
             entry["error_type"] = type(exc).__name__
@@ -161,7 +187,9 @@ print(json.dumps({
         "scope": "top-level regular .js/.cjs/.mjs/.py files plus package.json only",
     },
     "side_effects": "filesystem reads only; no network, no writes, no process start, no package scripts, no logs, env files, package-lock files, backups, or JSONL ledgers read",
-    "static_triage": "heuristic counts of source lines matching fixed execution/network/listener/filesystem/environment/dynamic-code/MCP/authorization marker patterns; counts are not proof of behavior or vulnerability",
-    "disclosure": "prints file names, sizes, SHA-256 digests, marker line counts and allowlisted package metadata; never prints source contents or package script command values",
+    "static_triage": "heuristic counts and bounded line numbers for fixed execution/network/listener/filesystem/environment/dynamic-code/MCP/authorization patterns; counts and line locations are not proof of behavior or vulnerability",
+    "manual_review": "manual_review_suggested is a triage flag for selected marker categories, not a vulnerability verdict or an execution decision",
+    "max_line_numbers_per_marker": MAX_LINE_NUMBERS_PER_MARKER,
+    "disclosure": "prints file names, sizes, SHA-256 digests, bounded marker line numbers/counts and allowlisted package metadata; never prints source contents or package script command values",
 }, indent=2, sort_keys=True))
 PY

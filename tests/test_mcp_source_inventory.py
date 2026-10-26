@@ -93,6 +93,24 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
     assert marker_lines["dynamic_code"] >= 1
     assert marker_lines["mcp_tool_or_protocol"] >= 1
     assert marker_lines["authorization_or_approval"] >= 1
+    marker_numbers = triage_entry["static_marker_line_numbers"]
+    assert marker_numbers["process_execution"] == [1]
+    assert marker_numbers["network_listener"] == [2, 3]
+    assert marker_numbers["filesystem_mutation"] == [4]
+    assert marker_numbers["environment_or_credential_access"] == [5]
+    assert marker_numbers["dynamic_code"] == [6]
+    assert marker_numbers["network_client"] == [7]
+    assert marker_numbers["mcp_tool_or_protocol"] == [8]
+    assert marker_numbers["authorization_or_approval"] == [9]
+    assert triage_entry["manual_review_suggested"] is True
+    assert triage_entry["manual_review_marker_categories"] == [
+        "dynamic_code",
+        "environment_or_credential_access",
+        "filesystem_mutation",
+        "network_listener",
+        "process_execution",
+    ]
+    assert triage_entry["static_marker_lines_truncated"] == {}
     package_entry = _file_entry(document, "~/mcp-aurora-server", "package.json")
     assert package_entry["state"] == "HASHED_MANIFEST_ONLY"
     root_entry = next(x for x in document["roots"] if x["root"] == "~/mcp-aurora-server")
@@ -115,6 +133,26 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
     after = {p.relative_to(home).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     assert after == before
     assert document["side_effects"].startswith("filesystem reads only")
+
+
+def test_static_marker_line_numbers_are_bounded(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    root = home / "mcp-aurora"
+    root.mkdir()
+    (root / "eval-helper.js").write_text(
+        "".join("eval('candidate');\\n" for _ in range(15)),
+        encoding="utf-8",
+    )
+
+    result = _run(home)
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    entry = _file_entry(document, "~/mcp-aurora", "eval-helper.js")
+    assert entry["static_marker_lines"]["dynamic_code"] == 15
+    assert entry["static_marker_line_numbers"]["dynamic_code"] == list(range(1, 9))
+    assert entry["static_marker_lines_truncated"]["dynamic_code"] is True
+    assert entry["manual_review_suggested"] is True
 
 
 def test_absent_roots_and_symlink_roots_are_reported_without_following_them(tmp_path: Path):
