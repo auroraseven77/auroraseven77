@@ -22,14 +22,14 @@ An alternate local loopback port may be supplied explicitly to the Python prefli
 
     python3 scripts/aurora_mcp_preflight.py --host 127.0.0.1 --port 8787 --timeout 2
 
-The tool refuses non-loopback hosts by design. It does not scan ports or probe public hosts. `localhost` is canonicalized to `127.0.0.1`; IPv6 loopback is handled using the required bracket syntax for HTTP connections.
+The tool refuses non-loopback hosts by design. It does not scan ports or probe public hosts. `localhost` is canonicalized to `127.0.0.1`. IPv6 loopback (for example, `::1`) is passed to Python's HTTP client as a raw socket address; the client formats the HTTP `Host` header with brackets as required. Brackets must not be injected into the socket hostname itself.
 
 ## Interpret results
 
-- HEALTH_REACHABLE: a local HTTP health route returned 2xx. This is **not** an MCP initialize/tool-list handshake.
-- HTTP_REACHABLE_NO_HEALTH_SUCCESS: a process answered HTTP but neither known path returned 2xx; inspect the configured route and transport.
-- NOT_CONNECTED: neither health path returned an HTTP response. Check whether the intended HTTP bridge is running locally.
-- NOT_TESTED_BY_HTTP_PROBE for stdio: expected. Stdio servers communicate over stdin/stdout and cannot be verified using HTTP GET.
+- `HEALTH_REACHABLE`: a local HTTP health route returned 2xx. This is **not** an MCP initialize/tool-list handshake.
+- `HTTP_REACHABLE_NO_HEALTH_SUCCESS`: a process answered HTTP but neither known path returned 2xx; inspect the configured route and transport.
+- `NOT_CONNECTED`: neither health path returned an HTTP response. Check whether the intended HTTP bridge is running locally.
+- `NOT_TESTED_BY_HTTP_PROBE` for stdio: expected. Stdio servers communicate over stdin/stdout and cannot be verified using HTTP GET.
 
 ## Separate MCP transport paths
 
@@ -39,12 +39,12 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Current evidence boundary
 
-A prior user-provided Termux transcript reported that 127.0.0.1:8787/healthz failed with connection refused and no listener was present at that time. A newer read-only transcript also showed `ss -ltn` with no listener rows, but its process listing and second HTTP check were incomplete because the platform-specific `ps -o PID,COMM` invocation returned no usable output and `sed` was not installed. This document does not claim that any condition is current beyond the timestamps in the individual diagnostic output. Re-run the diagnostic on the device to refresh evidence.
+The Termux transcript received on 2026-10-26 at 16:57:10 UTC reported `ConnectionRefusedError` for both `127.0.0.1:8787/healthz` and `/health`. The subsequent transcript at 16:58:31 UTC showed no listener rows from `ss -ltn`; its process listing used a GNU-style `ps -o PID,COMM` invocation that returned no usable output, and its second HTTP checks were incomplete because `sed` was not installed. These facts are timestamped observations, not proof of the present service state. Run the diagnostic on the device to refresh the evidence.
 
 ## Acceptance tests
 
 - Reject non-loopback host, invalid port, and unbounded timeout before networking.
-- Canonicalize `localhost` to a numeric IPv4 loopback address and format IPv6 loopback correctly.
+- Canonicalize `localhost` to numeric IPv4 loopback and use raw IPv6 loopback for socket connections.
 - Issue only the two documented HTTP GET requests.
 - Bound response-body consumption and never disclose response bodies or request headers.
 - Distinguish HTTP health from MCP handshake and from stdio reachability.
