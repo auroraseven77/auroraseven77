@@ -186,7 +186,7 @@ print(json.dumps({
         "hash_chunk_bytes": CHUNK_BYTES,
         "scope": "top-level regular .js/.cjs/.mjs/.py files plus package.json only",
     },
-    "side_effects": "filesystem reads only; no network, no writes, no process start, no package scripts, no logs, env files, package-lock files, backups, or JSONL ledgers read",
+    "side_effects": "read-only local filesystem inspection; reads bounded source files for hashing and heuristic markers and reads package.json within the size cap for SHA-256 and allowlisted metadata/script names; never emits or executes package script command values; no network requests, file writes, or project/service process starts/stops; excludes logs, env files, package-lock files, backups, and JSONL ledgers",
     "static_triage": "heuristic counts and bounded line numbers for fixed execution/network/listener/filesystem/environment/dynamic-code/MCP/authorization patterns; counts and line locations are not proof of behavior or vulnerability",
     "manual_review": "manual_review_suggested is a triage flag for selected marker categories, not a vulnerability verdict or an execution decision",
     "max_line_numbers_per_marker": MAX_LINE_NUMBERS_PER_MARKER,
