@@ -24,6 +24,7 @@ Formato de cada linha `.jsonl`:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -32,12 +33,21 @@ from typing import Any, Optional
 
 from aurora_phase1.core.crypto import (
     GENESIS_PREV_HASH,
-    hash_bytes,
     hash_object,
 )
 
 
 BLOCK_FIELDS = ("seq", "tick", "event_type", "payload", "prev_hash")
+HASH_CHUNK_SIZE = 64 * 1024
+
+
+def _hash_file(path: Path) -> str:
+    """Hash raw file bytes incrementally to avoid buffering large evidence files."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(HASH_CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -230,8 +240,7 @@ class Ledger:
             raise FileNotFoundError(
                 f"Arquivo de evidência não existe: {evidence_path}"
             )
-        content = evidence_path.read_bytes()
-        evidence_hash = hash_bytes(content)
+        evidence_hash = _hash_file(evidence_path)
 
         payload = {
             "attack_id": attack_id,
