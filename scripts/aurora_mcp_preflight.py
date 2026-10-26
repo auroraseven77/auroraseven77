@@ -12,7 +12,6 @@ import http.client
 import ipaddress
 import json
 import socket
-import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -60,9 +59,13 @@ def probe_health(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
     """Probe only /healthz and /health; never return response bodies or headers."""
     validate_target(host, port, timeout)
     host = normalize_loopback_host(host)
+    parsed_host = ipaddress.ip_address(host)
+    # http.client expects brackets around IPv6 literals when a port is supplied.
+    connection_host = f"[{host}]" if parsed_host.version == 6 else host
+
     results: list[dict[str, Any]] = []
     for path in HEALTH_PATHS:
-        connection = http.client.HTTPConnection(host, port, timeout=timeout)
+        connection = http.client.HTTPConnection(connection_host, port, timeout=timeout)
         try:
             connection.request(
                 "GET",
