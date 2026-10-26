@@ -132,7 +132,9 @@ def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(
         assert sentinel not in result.stdout
     after = {p.relative_to(home).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     assert after == before
-    assert document["side_effects"].startswith("filesystem reads only")
+    assert document["side_effects"].startswith("read-only local filesystem inspection")
+    assert "package.json" in document["side_effects"]
+    assert "never emits or executes package script command values" in document["side_effects"]
 
 
 def test_static_marker_line_numbers_are_bounded(tmp_path: Path):
