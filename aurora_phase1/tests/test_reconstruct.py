@@ -132,7 +132,7 @@ class TestReconstruct(unittest.TestCase):
             f.write(
                 '{"seq":3,"tick":0,"event_type":"FORGED","payload":{},'
                 '"prev_hash":"deadbeef' + "0" * 56 + '",'
-                '"entry_hash":"' + "x" * 64 + '"}\n'
+                '"entry_hash":"' + "0" * 64 + '"}\n'
             )
 
         recon = WorldReconstructor(self.ledger)
