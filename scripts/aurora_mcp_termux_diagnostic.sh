@@ -46,6 +46,7 @@ if command -v ps >/dev/null 2>&1; then
         }
       }
       END {
+        printf "visible_process_rows=%d candidate_name_matches=%d\n", rows+0, matches+0
         if (!rows) {
           print "process_state=INCONCLUSIVE (ps returned header only or no visible process rows)"
         } else if (!matches) {

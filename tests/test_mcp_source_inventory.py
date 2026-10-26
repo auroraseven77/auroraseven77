@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+
+
+REPOSITORY = Path(__file__).resolve().parents[1]
+SCRIPT = REPOSITORY / "scripts" / "aurora_mcp_source_inventory.sh"
+
+
+def _json_output(stdout: str) -> dict:
+    match = re.search(r"(?m)^\{\n", stdout)
+    assert match is not None, stdout
+    return json.loads(stdout[match.start():])
+
+
+def _file_entry(document: dict, root_name: str, filename: str) -> dict:
+    root = next(item for item in document["roots"] if item["root"] == root_name)
+    return next(item for item in root["files"] if item["name"] == filename)
+
+
+def _run(home: Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["HOME"] = str(home)
+    return subprocess.run(
+        ["/bin/bash", str(SCRIPT)],
+        cwd=REPOSITORY,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+
+
+def test_hashes_selected_source_but_never_discloses_contents_or_script_commands(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    root = home / "mcp-aurora-server"
+    root.mkdir()
+    source = b"SOURCE_SENTINEL_do_not_print\nconsole.log('demo');\n"
+    (root / "index.js").write_bytes(source)
+    (root / "package.json").write_text(
+        json.dumps({
+            "name": "safe-demo",
+            "version": "1.2.3",
+            "main": "index.js",
+            "scripts": {"start": "COMMAND_SENTINEL_should_never_print"},
+        }),
+        encoding="utf-8",
+    )
+    (root / "package-lock.json").write_text("LOCK_SENTINEL", encoding="utf-8")
+    (root / "audit-denials.jsonl").write_text("LEDGER_SENTINEL", encoding="utf-8")
+    (root / "aurora.log").write_text("LOG_SENTINEL", encoding="utf-8")
+    (root / ".env").write_text("ENV_SENTINEL=never_print", encoding="utf-8")
+    (root / "index.js.bak").write_text("BACKUP_SENTINEL", encoding="utf-8")
+    (root / "private-helper.js").write_text("PRIVATE_SENTINEL", encoding="utf-8")
+    nested = root / "nested"
+    nested.mkdir()
+    (nested / "nested.js").write_text("NESTED_SENTINEL", encoding="utf-8")
+
+    before = {p.relative_to(home).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    result = _run(home)
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    source_entry = _file_entry(document, "~/mcp-aurora-server", "index.js")
+    assert source_entry["sha256"] == hashlib.sha256(source).hexdigest()
+    assert source_entry["state"] == "HASHED_SOURCE_ONLY"
+    _file_entry(document, "~/mcp-aurora-server", "package.json")
+    root_entry = next(x for x in document["roots"] if x["root"] == "~/mcp-aurora-server")
+    assert root_entry["package_metadata"]["name"] == "safe-demo"
+    assert root_entry["package_metadata"]["script_names"] == ["start"]
+    for sentinel in (
+        "COMMAND_SENTINEL_should_never_print",
+        "SOURCE_SENTINEL",
+        "LOCK_SENTINEL",
+        "LEDGER_SENTINEL",
+        "LOG_SENTINEL",
+        "ENV_SENTINEL",
+        "BACKUP_SENTINEL",
+        "PRIVATE_SENTINEL",
+        "NESTED_SENTINEL",
+    ):
+        assert sentinel not in result.stdout
+    after = {p.relative_to(home).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    assert after == before
+    assert document["side_effects"].startswith("filesystem reads only")
+
+
+def test_absent_roots_and_symlink_roots_are_reported_without_following_them(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    result = _run(home)
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    assert all(root["state"] == "ABSENT" for root in document["roots"])
+
+    target = tmp_path / "real-source"
+    target.mkdir()
+    (target / "leak.js").write_text("SYMLINK_TARGET_SENTINEL", encoding="utf-8")
+    (home / "mcp-aurora").symlink_to(target, target_is_directory=True)
+    result = _run(home)
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    root = next(item for item in document["roots"] if item["root"] == "~/mcp-aurora")
+    assert root["state"] == "SYMLINK_ROOT_SKIPPED"
+    assert "SYMLINK_TARGET_SENTINEL" not in result.stdout
+
+
+def test_source_symlink_is_not_followed(tmp_path: Path):
+    home = tmp_path / "home"
+    home.mkdir()
+    root = home / "mcp-aurora"
+    root.mkdir()
+    target = home / "target.js"
+    target.write_text("SYMLINK_SOURCE_SENTINEL", encoding="utf-8")
+    (root / "linked.js").symlink_to(target)
+    result = _run(home)
+    assert result.returncode == 0, result.stderr
+    document = _json_output(result.stdout)
+    assert _file_entry(document, "~/mcp-aurora", "linked.js")["state"] == "SYMLINK_SKIPPED"
+    assert "SYMLINK_SOURCE_SENTINEL" not in result.stdout
