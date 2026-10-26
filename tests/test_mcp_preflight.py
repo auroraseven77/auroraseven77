@@ -22,9 +22,11 @@ class FakeConnection:
     outcomes: list[int | OSError] = []
     requests: list[tuple[str, str, dict[str, str]]] = []
     responses: list[FakeResponse] = []
+    hosts: list[str] = []
 
     def __init__(self, host: str, port: int, timeout: float):
         self.host, self.port, self.timeout = host, port, timeout
+        self.hosts.append(host)
 
     def request(self, method: str, path: str, headers: dict[str, str]) -> None:
         self.requests.append((method, path, dict(headers)))
@@ -45,6 +47,7 @@ def reset_fake() -> None:
     FakeConnection.outcomes = []
     FakeConnection.requests = []
     FakeConnection.responses = []
+    FakeConnection.hosts = []
 
 
 def test_rejects_remote_host_before_network_activity():
@@ -101,6 +104,19 @@ def test_localhost_is_canonicalized_to_numeric_loopback(monkeypatch):
     report = probe_health(host=" LOCALHOST ")
 
     assert report["target"]["host"] == "127.0.0.1"
+    assert FakeConnection.hosts == ["127.0.0.1", "127.0.0.1"]
+    assert report["state"] == "HEALTH_REACHABLE"
+
+
+def test_ipv6_loopback_is_bracketed_for_http_client(monkeypatch):
+    reset_fake()
+    FakeConnection.outcomes = [200, 200]
+    monkeypatch.setattr(http.client, "HTTPConnection", FakeConnection)
+
+    report = probe_health(host="::1")
+
+    assert report["target"]["host"] == "::1"
+    assert FakeConnection.hosts == ["[::1]", "[::1]"]
     assert report["state"] == "HEALTH_REACHABLE"
 
 
