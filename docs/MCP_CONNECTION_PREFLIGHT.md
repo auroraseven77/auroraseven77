@@ -12,11 +12,17 @@ From a clone of this repository, run:
 
 The probe sends only bounded HTTP GET requests to http://127.0.0.1:8787/healthz and /health. It prints status codes and exception **types**, never response bodies or headers; it does not read tokens, launch processes, write files, follow redirects, or call MCP tools. It exits 0 only if at least one health path returns HTTP 2xx. A nonzero exit is diagnostic, not proof the stdio server is broken.
 
-An alternate local loopback port may be supplied explicitly:
+For a broader Android-compatible diagnostic of listeners, best-effort process names, and the known local directories, run:
+
+    bash scripts/aurora_mcp_termux_diagnostic.sh
+
+This script uses `ps -A` rather than GNU-specific `ps -o PID,COMM`, requires no `sed`, and does not install packages or start/stop services. It displays candidate file names only (not file contents) and performs the same bounded loopback HTTP GET checks. Missing commands are reported as unavailable instead of being silently interpreted as a negative result.
+
+An alternate local loopback port may be supplied explicitly to the Python preflight:
 
     python3 scripts/aurora_mcp_preflight.py --host 127.0.0.1 --port 8787 --timeout 2
 
-The tool refuses non-loopback hosts by design. It does not scan ports or probe public hosts.
+The tool refuses non-loopback hosts by design. It does not scan ports or probe public hosts. `localhost` is canonicalized to `127.0.0.1`; IPv6 loopback is handled using the required bracket syntax for HTTP connections.
 
 ## Interpret results
 
@@ -33,12 +39,14 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Current evidence boundary
 
-A prior user-provided Termux transcript reported that 127.0.0.1:8787/healthz failed with connection refused and no listener was present at that time. This document does not claim that condition is still current. Re-run the probe on the device and share its sanitized JSON output to refresh the evidence.
+A prior user-provided Termux transcript reported that 127.0.0.1:8787/healthz failed with connection refused and no listener was present at that time. A newer read-only transcript also showed `ss -ltn` with no listener rows, but its process listing and second HTTP check were incomplete because the platform-specific `ps -o PID,COMM` invocation returned no usable output and `sed` was not installed. This document does not claim that any condition is current beyond the timestamps in the individual diagnostic output. Re-run the diagnostic on the device to refresh evidence.
 
 ## Acceptance tests
 
 - Reject non-loopback host, invalid port, and unbounded timeout before networking.
+- Canonicalize `localhost` to a numeric IPv4 loopback address and format IPv6 loopback correctly.
 - Issue only the two documented HTTP GET requests.
-- Never disclose response bodies or request headers.
+- Bound response-body consumption and never disclose response bodies or request headers.
 - Distinguish HTTP health from MCP handshake and from stdio reachability.
-- No port scan, process launch, credentials access, persistence, or writes.
+- No port scan, MCP tool invocation, server launch, credential access, persistence, or writes.
+- Termux shell diagnostic remains compatible without `sed` and does not assume GNU-style `ps -o`.
