@@ -124,7 +124,7 @@ def test_real_http_connection_formats_ipv6_host_header_without_bracketed_socket_
     connection = http.client.HTTPConnection("::1", 8787, timeout=0.2)
     try:
         assert connection.host == "::1"
-        assert connection._get_hostport() == "[::1]:8787"
+        assert connection._get_hostport(connection.host, connection.port) == "[::1]:8787"
     finally:
         connection.close()
 
