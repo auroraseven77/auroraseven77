@@ -1,0 +1,63 @@
+name: Audit documentation and B1-GEN-01A
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "STATUS.md"
+      - "docs/audits/**"
+      - "scripts/validate-audit-docs.py"
+      - "scripts/reproduce-b1-gen-01a.sh"
+      - "experiments/B1-GEN-01A/**"
+      - ".github/workflows/audit-docs.yml"
+  push:
+    branches:
+      - "docs/audits-2026-10-14"
+    paths:
+      - "README.md"
+      - "STATUS.md"
+      - "docs/audits/**"
+      - "scripts/validate-audit-docs.py"
+      - "scripts/reproduce-b1-gen-01a.sh"
+      - "experiments/B1-GEN-01A/**"
+      - ".github/workflows/audit-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    name: Validate audit documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate documentation structure
+        run: python scripts/validate-audit-docs.py
+      - name: Check shell syntax
+        run: bash -n scripts/reproduce-b1-gen-01a.sh
+
+  b1-gen-tests:
+    name: B1-GEN-01A tests (conditional on published suite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Detect isolated test suite
+        id: detect
+        shell: bash
+        run: |
+          if find experiments/B1-GEN-01A/tests -type f -name '*.py' -print -quit 2>/dev/null | grep -q .; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::B1-GEN-01A suite not published; tests are blocked, not passed."
+          fi
+      - name: Run isolated unit tests
+        if: steps.detect.outputs.has_tests == 'true'
+        run: bash scripts/reproduce-b1-gen-01a.sh

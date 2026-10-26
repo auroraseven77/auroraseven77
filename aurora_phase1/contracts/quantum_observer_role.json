@@ -1,0 +1,34 @@
+{
+  "contract_id": "contract_quantum_observer",
+  "version": "1.0.0",
+  "role": "QUANTUM_OBSERVER",
+  "region": "OBSERVATION",
+  "description": "Habitante que propõe medições sobre estados quânticos. Consome o motor canônico b1_motor. Nunca executa código arbitrário.",
+  "allowed_actions": [
+    "PROPOSE_QUANTUM_MEASUREMENT"
+  ],
+  "disallowed_actions": [
+    "EXECUTE_DIRECTLY",
+    "INVOKE_SHELL",
+    "MODIFY_CONTRACT",
+    "PROPOSE_COMMAND_EXECUTION",
+    "MODIFY_SYSTEM_STATE"
+  ],
+  "allowed_observables": ["I", "X", "Y", "Z"],
+  "max_qubits": 8,
+  "max_terms": 512,
+  "backend": "b1_motor",
+  "default_bond_dim": 8,
+  "default_state_type": "zeros",
+  "hypothesis_max_length": 512,
+  "denied_patterns": [
+    "\\bimport\\b",
+    "\\bexec\\b",
+    "\\beval\\b",
+    "__",
+    ";",
+    "\\|",
+    "&",
+    "`"
+  ]
+}

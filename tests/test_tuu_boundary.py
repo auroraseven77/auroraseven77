@@ -22,6 +22,7 @@ def test_agent_metric_output_forbids_extra_fields():
     """Garante que extra='forbid' rejeite injeções de score pelos agentes."""
     with pytest.raises(ValidationError):
         AgentMetricOutput.model_validate({
+            "intent": "ls",
             "confidence": 0.9,
             "feasibility": 0.8,
             "historical_success": 0.8,
@@ -33,6 +34,7 @@ def test_agent_metric_output_forbids_extra_fields():
 def test_compute_candidate_evaluation_deterministic_score():
     """Valida S_i = 0.4C + 0.2H + 0.3V - 0.1R."""
     metrics = AgentMetricOutput(
+        intent="ls",
         confidence=1.0,
         historical_success=1.0,
         feasibility=1.0,
@@ -47,6 +49,7 @@ def test_compute_candidate_evaluation_deterministic_score():
 def test_compute_candidate_evaluation_rejects_negative_score():
     """Valida a rejeição de S_i negativo para C=H=V=0, R=1."""
     metrics = AgentMetricOutput(
+        intent="unauthorized_cmd",
         confidence=0.0,
         historical_success=0.0,
         feasibility=0.0,
@@ -59,12 +62,14 @@ def test_compute_candidate_evaluation_rejects_negative_score():
 def test_circuit_breaker_consumes_canonical_candidate_evaluation():
     """Valida consumo do CandidateEvaluation canônico e H_N."""
     m1 = AgentMetricOutput(
+        intent="date",
         confidence=0.94,
         feasibility=0.90,
         historical_success=0.94,
         risk=0.08,
     )
     m2 = AgentMetricOutput(
+        intent="pwd",
         confidence=0.03,
         feasibility=0.35,
         historical_success=0.40,
@@ -95,6 +100,7 @@ async def test_swarm_async_dry_run_fan_in():
     async def agent_eval(conf: float) -> AgentMetricOutput:
         await asyncio.sleep(0.01)
         return AgentMetricOutput(
+            intent="placeholder",
             confidence=conf,
             feasibility=0.9,
             historical_success=0.8,

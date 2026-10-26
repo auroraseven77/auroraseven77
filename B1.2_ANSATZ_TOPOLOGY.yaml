@@ -1,0 +1,45 @@
+schema_version: "B1.2-Ansatz-Topology-1.0"
+experiment_id: "B1.2-64Q-VQE"
+source_manifest: "MANIFEST_B1.2.yaml"
+status: "IMPLEMENTATION_CLOSED"
+
+# The manifest fixes hardware-efficient linear entanglement but does not
+# serialize CX direction/order. This file closes that implementation detail
+# without modifying the sealed manifest or integrity envelope.
+ansatz:
+  logical_qubits: 64
+  layers: 3
+  rotation_gates: ["RY", "RZ"]
+  parameters_per_qubit_per_layer: 2
+  total_parameters: 384
+
+  layer_order:
+    - "RY(q) using theta[layer,q,RY]"
+    - "RZ(q) using theta[layer,q,RZ]"
+    - "CX(q,q+1) for q = 0..62"
+
+  entangler:
+    gate: "CX"
+    topology: "linear_open_chain"
+    pairs:
+      order: "ascending"
+      sequence: "[(0,1),(1,2),...,(62,63)]"
+    orientation:
+      control: "lower_logical_index"
+      target: "higher_logical_index"
+    placement: "after_RY_RZ"
+
+  repetition:
+    apply_entangler_after_each_rotation_layer: true
+
+  parameter_indexing:
+    formula: "2 * (layer * 64 + qubit) + gate_offset"
+    gate_offset:
+      RY: 0
+      RZ: 1
+
+notes:
+  - "No CX parameter is introduced."
+  - "Open-chain entanglement contains 63 CX gates per layer."
+  - "The choice of CX orientation/order is an implementation closure of the declared linear-entanglement family; it is not retroactively claimed to be serialized in MANIFEST_B1.2.yaml."
+  - "This topology file does not alter H_pre or the sealed integrity envelope."

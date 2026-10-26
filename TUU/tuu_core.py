@@ -53,7 +53,12 @@ def compute_candidate_evaluation(
         + w_v * metrics.feasibility
         - w_r * metrics.risk
     )
-    score = round(max(0.0, min(1.0, raw_score)), 4)
+    if raw_score < 0.0:
+        raise ValueError(
+            f"Score negativo rejeitado pelo contrato TUU "
+            f"(S_i={raw_score:.6f}, intent='{intent}')"
+        )
+    score = round(min(1.0, raw_score), 4)
     return CandidateEvaluation(
         intent=intent,
         confidence=metrics.confidence,
