@@ -16,7 +16,7 @@ For a broader Android-compatible diagnostic of listeners, best-effort process na
 
     bash scripts/aurora_mcp_termux_diagnostic.sh
 
-This script uses `ps -A` rather than GNU-specific `ps -o PID,COMM`, requires no `sed`, and does not install packages or start/stop services. It displays candidate file names only (not file contents) and performs the same bounded loopback HTTP GET checks. Missing commands are reported as unavailable instead of being silently interpreted as a negative result.
+This script uses `ps -A` rather than GNU-specific `ps -o PID,COMM`, requires no `sed`, and does not install packages or start/stop services. It displays candidate file names only (not file contents) and performs the same bounded loopback HTTP GET checks. It captures listener-command exit/output and flags typical Android netlink/permission errors as `INCONCLUSIVE`. A header-only process table is also `INCONCLUSIVE`; a process list with no matching command names is explicitly not treated as proof of absence.
 
 An alternate local loopback port may be supplied explicitly to the Python preflight:
 
@@ -30,6 +30,9 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 - `HTTP_REACHABLE_NO_HEALTH_SUCCESS`: a process answered HTTP but neither known path returned 2xx; inspect the configured route and transport.
 - `NOT_CONNECTED`: neither health path returned an HTTP response. Check whether the intended HTTP bridge is running locally.
 - `NOT_TESTED_BY_HTTP_PROBE` for stdio: expected. Stdio servers communicate over stdin/stdout and cannot be verified using HTTP GET.
+- `listener_state=INCONCLUSIVE`: `ss` failed or the output indicated OS/socket permission restrictions. Empty rows after a netlink error must not be treated as proof that the device has no listener.
+- `process_state=INCONCLUSIVE`: the process command failed or returned no visible data rows.
+- `process_state=NO_RELEVANT_NAME_MATCH`: the command returned rows but no candidate names matched. This is not proof of absence because Android may restrict process visibility and a server may use an unexpected command name.
 
 ## Separate MCP transport paths
 
@@ -39,7 +42,14 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Current evidence boundary
 
-The Termux transcript received on 2026-10-26 at 16:57:10 UTC reported `ConnectionRefusedError` for both `127.0.0.1:8787/healthz` and `/health`. The subsequent transcript at 16:58:31 UTC showed no listener rows from `ss -ltn`; its process listing used a GNU-style `ps -o PID,COMM` invocation that returned no usable output, and its second HTTP checks were incomplete because `sed` was not installed. These facts are timestamped observations, not proof of the present service state. Run the diagnostic on the device to refresh the evidence.
+The Termux transcript at **2026-10-26 17:36:42–17:36:43 UTC** showed:
+
+- `ss -ltn` printed `Cannot open netlink socket: Permission denied`, followed by a header but no listener rows. Listener visibility is therefore **INCONCLUSIVE**, not verified empty.
+- `ps -A` displayed only its header. Process visibility is **INCONCLUSIVE**; no process-absence claim is justified.
+- The two HTTP GETs to `127.0.0.1:8787/healthz` and `/health` both returned `ConnectionRefusedError`. That is direct evidence that the HTTP target refused connection at that timestamp.
+- The diagnostic found both known source directories and listed filenames only. It did not read source or logs.
+
+A refused HTTP connection does not rule out a stdio MCP server. No MCP initialize/tools/list handshake was performed. Re-run the diagnostic when the service configuration or runtime changes to refresh the device evidence.
 
 ## Acceptance tests
 
@@ -48,5 +58,7 @@ The Termux transcript received on 2026-10-26 at 16:57:10 UTC reported `Connectio
 - Issue only the two documented HTTP GET requests.
 - Bound response-body consumption and never disclose response bodies or request headers.
 - Distinguish HTTP health from MCP handshake and from stdio reachability.
+- Interpret netlink/permission errors and header-only process output as inconclusive.
+- Use test doubles for shell diagnostics; automated tests must not require an active HTTP server.
 - No port scan, MCP tool invocation, server launch, credential access, persistence, or writes.
 - Termux shell diagnostic remains compatible without `sed` and does not assume GNU-style `ps -o`.
