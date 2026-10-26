@@ -141,7 +141,7 @@ def test_static_marker_line_numbers_are_bounded(tmp_path: Path):
     root = home / "mcp-aurora"
     root.mkdir()
     (root / "eval-helper.js").write_text(
-        "".join("eval('candidate');\\n" for _ in range(15)),
+        "".join("eval('candidate');\n" for _ in range(15)),
         encoding="utf-8",
     )
 
