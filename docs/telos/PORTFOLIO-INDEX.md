@@ -52,3 +52,22 @@ All links above are proposals and must be rechecked for state before use. Draft 
 - SHA-256 helps detect byte changes relative to a known digest; it does not independently establish historical authenticity.
 - Absence from the current accessible tree is scoped absence, not global irrecoverability.
 - No user-device, Snowflake, admin-console, secret, live TUU SQLite/WAL, or external target operation is performed by this documentation.
+
+## Legacy TUU PR blockers — observed 2026-10-26
+
+This section records CI findings tied to the exact historical PR head commits below. They are not evidence that the current `main` commit is failing; the branches were created against older base commits and must be revalidated before any promotion.
+
+| PR | Tested head | Observed CI evidence | Disposition |
+|---|---|---|---|
+| [#1 — v2.1 invariant engine](https://github.com/auroraseven77/auroraseven77/pull/1) | `c321ba579efbc7966f0b336a0c30a9fde21f6d98` | Runs [35418397303](https://github.com/auroraseven77/auroraseven77/actions/runs/35418397303) and [35418397220](https://github.com/auroraseven77/auroraseven77/actions/runs/35418397220) failed. Logs show 10 failed / 34 passed in the integration job, including lifecycle-state mismatches, missing required `AgentMetricOutput` fields, and calls passing `auth_context` to a function accepting `authorization_context`. | Not merge-ready on this evidence; fix failures and rerun against updated `main`. |
+| [#2 — package foundation](https://github.com/auroraseven77/auroraseven77/pull/2) | `a2eea9abfc2a1ffe530d3538d84286e852f55bd0` | Runs [35406375611](https://github.com/auroraseven77/auroraseven77/actions/runs/35406375611) and [35406375534](https://github.com/auroraseven77/auroraseven77/actions/runs/35406375534) failed during pytest collection. Logs report `RecursionError` across five test modules before the suite could execute. | Package/install step alone is insufficient; repair the model/type recursion and rerun collection plus tests. |
+| [#3 — immutable MPS swarm contracts](https://github.com/auroraseven77/auroraseven77/pull/3) | `be0144ca23bd7ebd0033bc635bdab8edf9228227` | Runs [35547224344](https://github.com/auroraseven77/auroraseven77/actions/runs/35547224344) and [35547224416](https://github.com/auroraseven77/auroraseven77/actions/runs/35547224416) failed. Integration collection could not import `TUUCore`; core CI also reported immutability-test failure, required-field validation errors, lifecycle API keyword mismatch, and lifecycle-state mismatch. | Must reconcile the test surface/API and restore the intended immutability guarantee before review. |
+| [#30 — lifecycle fixture](https://github.com/auroraseven77/auroraseven77/pull/30) | `954640cad7cfef5952895e23860cb2d27078859b` | Core CI run [35549915344](https://github.com/auroraseven77/auroraseven77/actions/runs/35549915344) passed, but integration run [35549915359](https://github.com/auroraseven77/auroraseven77/actions/runs/35549915359) failed at collection because `TUUCore` could not be imported by two integration test modules. | Mixed result; do not treat core workflow success as full integration success. |
+
+### Required gate before any of these PRs is promoted
+
+1. Update each candidate against the current base in an isolated branch; do not rewrite `main`.
+2. Fix source/API/validation defects rather than weakening tests to match implementation.
+3. Run the full currently applicable workflow matrix and inspect the exact head SHA, run IDs, failing step, and test summary.
+4. Verify authorization-denial and no-side-effect paths; verify deep immutability with adversarial nested inputs.
+5. Keep the PR open and unmerged until human review. These historical runs are diagnostic evidence, not proof of a present-day failure or of scientific validity.
