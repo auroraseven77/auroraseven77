@@ -6,7 +6,7 @@ import pytest
 from osint_toolkit.evidence import store_evidence
 
 
-@pytest.mark.parametrize("kind", ["../escape", "path/inner", r"path\\inner", "", ".", ".."])
+@pytest.mark.parametrize("kind", ["../escape", "path/inner", r"path\inner", "", ".", ".."])
 def test_evidence_kind_rejected_before_writer_touches_filesystem(tmp_path: Path, kind: str):
     root = tmp_path / "must-not-exist"
     with pytest.raises(ValueError, match="safe filename token"):
@@ -40,6 +40,21 @@ def test_existing_blob_is_verified_before_reuse(tmp_path: Path):
     path.write_bytes(b"tampered")
     with pytest.raises(RuntimeError, match="full SHA-256"):
         store_evidence(original, "headers", root=tmp_path)
+
+
+def test_existing_blob_hash_verification_does_not_load_whole_file(tmp_path: Path, monkeypatch):
+    raw = b"0123456789abcdef" * 65536  # 1 MiB deterministic fixture
+    result = store_evidence(raw, "headers", root=tmp_path)
+    path = Path(result["path"])
+    assert path.stat().st_size == len(raw)
+
+    def forbidden_read_bytes(_self):
+        raise AssertionError("verification must stream rather than call Path.read_bytes()")
+
+    monkeypatch.setattr(Path, "read_bytes", forbidden_read_bytes)
+    repeated = store_evidence(raw, "headers", root=tmp_path)
+    assert repeated["hash"] == hashlib.sha256(raw).hexdigest()
+    assert repeated["path"] == str(path)
 
 
 def test_non_file_destination_is_rejected(tmp_path: Path):
