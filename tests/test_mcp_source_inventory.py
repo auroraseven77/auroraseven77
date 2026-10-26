@@ -144,14 +144,14 @@ def test_summary_mode_reports_only_review_candidates_and_preserves_files(tmp_pat
     root = home / "mcp-aurora-server"
     root.mkdir()
     source = (
-        "const child = require('child_process');\\n"
-        "const server = http.createServer(app);\\n"
-        "server.listen(8787);\\n"
-        "fs.writeFileSync('demo', 'payload');\\n"
-        "const value = eval('TRIAGE_SECRET_SENTINEL');\\n"
+        "const child = require('child_process');\n"
+        "const server = http.createServer(app);\n"
+        "server.listen(8787);\n"
+        "fs.writeFileSync('demo', 'payload');\n"
+        "const value = eval('TRIAGE_SECRET_SENTINEL');\n"
     )
     (root / "bridge.cjs").write_text(source, encoding="utf-8")
-    (root / "quiet.js").write_text("const x = 1;\\n", encoding="utf-8")
+    (root / "quiet.js").write_text("const x = 1;\n", encoding="utf-8")
     (root / "package.json").write_text(
         json.dumps({"name": "summary-demo", "scripts": {"start": "PRIVATE_COMMAND_SENTINEL"}}),
         encoding="utf-8",
