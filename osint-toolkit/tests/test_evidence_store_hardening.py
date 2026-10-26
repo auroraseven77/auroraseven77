@@ -87,3 +87,17 @@ def test_normal_content_is_stored_and_hash_is_idempotent(tmp_path: Path):
     assert first == second
     assert Path(first["path"]).read_bytes() == raw
     assert first["hash"] == hashlib.sha256(raw).hexdigest()
+
+
+def test_symlinked_parent_of_evidence_root_is_rejected(tmp_path: Path):
+    target_parent = tmp_path / "real-parent"
+    target_parent.mkdir()
+    parent_link = tmp_path / "parent-link"
+    parent_link.symlink_to(target_parent, target_is_directory=True)
+    evidence_root = parent_link / "evidence"
+
+    with pytest.raises(RuntimeError, match="symbolic-link parent"):
+        store_evidence(b"payload", "headers", root=evidence_root)
+
+    assert not (target_parent / "evidence").exists()
+    assert list(target_parent.iterdir()) == []
