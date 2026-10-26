@@ -17,7 +17,13 @@ fi
 printf '\n=== 2. RELEVANT PROCESS NAMES (BEST EFFORT) ===\n'
 if command -v ps >/dev/null 2>&1; then
   # Android/Termux ps often lacks GNU-style "-o PID,COMM"; use portable default output.
-  ps -A 2>&1 | awk 'NR == 1 || tolower($0) ~ /node|python|mcp|aurora/ { print substr($0, 1, 180) }'
+  ps_output="$(ps -A 2>&1)"
+  ps_rc=$?
+  if [ "$ps_rc" -eq 0 ]; then
+    printf '%s\n' "$ps_output" | awk 'NR == 1 || tolower($0) ~ /node|python|mcp|aurora/ { print substr($0, 1, 180) }'
+  else
+    printf 'ps -A failed (exit=%s); process evidence is INCONCLUSIVE\n' "$ps_rc"
+  fi
 else
   printf 'ps unavailable; process check not performed\n'
 fi
