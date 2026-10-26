@@ -52,8 +52,8 @@ def test_permission_denied_listener_and_header_only_process_output_are_inconclus
     assert "listener_state=INCONCLUSIVE" in result.stdout
     assert "process_state=INCONCLUSIVE" in result.stdout
     assert "NOT_CONNECTED" in result.stdout
-    assert "NO_SERVICE_STARTED" in result.stdout
-    assert "PACKAGE INSTALLED" in result.stdout
+    assert "NO SERVICE STARTED" in result.stdout
+    assert "NO PACKAGE INSTALLED" in result.stdout
 
 
 def test_empty_listener_table_and_unmatched_process_names_are_not_overclaimed(tmp_path: Path):
