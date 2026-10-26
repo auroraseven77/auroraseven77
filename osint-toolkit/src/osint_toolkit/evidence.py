@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -22,6 +23,16 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(_HASH_CHUNK_SIZE), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _reject_symlink_ancestors(path: Path) -> None:
+    """Reject existing symbolic-link parents before creating evidence directories."""
+    absolute = Path(os.path.abspath(path))
+    current = Path(absolute.anchor)
+    for component in absolute.parts[1:-1]:
+        current = current / component
+        if current.is_symlink():
+            raise RuntimeError("evidence root path must not traverse a symbolic-link parent")
 
 
 def _verify_existing_path(path: Path, expected_digest: str) -> None:
@@ -53,9 +64,12 @@ def store_evidence(
     directory = Path(root)
     if directory.is_symlink():
         raise RuntimeError("evidence root must not be a symbolic link")
+    _reject_symlink_ancestors(directory)
     directory.mkdir(parents=True, exist_ok=True)
     if directory.is_symlink() or not directory.is_dir():
         raise RuntimeError("evidence root must be a regular directory")
+    # Recheck after mkdir to catch a static or newly visible symlinked parent.
+    _reject_symlink_ancestors(directory)
     path = directory / f"{safe_kind}_{digest[:12]}.bin"
     if path.is_symlink():
         raise RuntimeError("evidence destination must not be a symbolic link")
