@@ -122,9 +122,20 @@ def test_ipv6_loopback_passes_raw_address_to_http_connection(monkeypatch):
 
 def test_real_http_connection_formats_ipv6_host_header_without_bracketed_socket_host():
     connection = http.client.HTTPConnection("::1", 8787, timeout=0.2)
+    captured_host_headers: list[tuple[str, tuple[object, ...]]] = []
+    original_putheader = connection.putheader
+
+    def capture_header(name: str, *values: object) -> None:
+        if name.lower() == "host":
+            captured_host_headers.append((name, values))
+        original_putheader(name, *values)
+
+    connection.putheader = capture_header  # type: ignore[method-assign]
     try:
         assert connection.host == "::1"
-        assert connection._get_hostport(connection.host, connection.port) == "[::1]:8787"
+        # Build the request only; putrequest buffers it and performs no network I/O.
+        connection.putrequest("GET", "/healthz")
+        assert captured_host_headers == [("Host", ("[::1]:8787",))]
     finally:
         connection.close()
 
