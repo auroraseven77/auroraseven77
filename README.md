@@ -167,3 +167,10 @@ O estado dos experimentos e das evidências deve ser lido como um registro audit
 - [Snapshot de auditoria](STATUS.md)
 
 **Regra de leitura:** resultados locais descritos como reportados não equivalem a uma reprodução independente. B1-GEN-01A permanece bloqueado neste repositório até que seus artefatos e testes sejam publicados e verificados. O núcleo `b1_motor/` permanece fora do escopo de alterações desta auditoria.
+
+
+---
+
+## Aurora/TUU Portfolio Index
+
+For the current project inventory, evidentiary status, reproducibility limitations, and linked workstreams, see the [TELOS portfolio index](docs/telos/PORTFOLIO-INDEX.md). The index distinguishes implemented code, observed CI, reported results, and missing historical provenance.
