@@ -82,6 +82,24 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(block.payload["evidence_hash"], hash_bytes(raw))
         self.assertTrue(self.ledger.audit_chain().chain_integrity)
 
+    def test_record_finding_streams_large_evidence_without_read_bytes(self):
+        import hashlib
+        from unittest.mock import patch
+
+        evidence = self.tmpdir / "large_binary_evidence.bin"
+        raw = b"0123456789abcdef" * 65536  # 1 MiB deterministic fixture
+        evidence.write_bytes(raw)
+
+        with patch.object(
+            Path,
+            "read_bytes",
+            side_effect=AssertionError("evidence hashing must stream raw bytes"),
+        ):
+            block = self.ledger.record_finding("large-fixture", evidence, tick=4)
+
+        self.assertEqual(block.payload["evidence_hash"], hashlib.sha256(raw).hexdigest())
+        self.assertTrue(self.ledger.audit_chain().chain_integrity)
+
     def test_seen_proposal_ids(self):
         self.ledger.add_block(
             "PROPOSAL_PROCESSED_AND_APPROVED", {"proposal_id": "p1"}
