@@ -9,9 +9,22 @@ date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf 'unavailable\n'
 
 printf '\n=== 1. TCP LISTENERS ===\n'
 if command -v ss >/dev/null 2>&1; then
-  ss -ltn 2>&1
+  ss_output="$(ss -ltn 2>&1)"
+  ss_rc=$?
+  printf '%s\n' "$ss_output"
+  ss_visibility_error="$(printf '%s\n' "$ss_output" | awk 'tolower($0) ~ /permission denied|cannot open netlink socket|operation not permitted|not permitted/ { found=1 } END { print found+0 }')"
+  if [ "$ss_rc" -ne 0 ] || [ "$ss_visibility_error" -eq 1 ]; then
+    printf 'listener_state=INCONCLUSIVE (ss exit=%s; OS/socket visibility error detected)\n' "$ss_rc"
+  else
+    ss_rows="$(printf '%s\n' "$ss_output" | awk 'NR > 1 && NF && tolower($0) !~ /warning|permission denied|cannot open netlink/ { count++ } END { print count+0 }')"
+    if [ "$ss_rows" -gt 0 ]; then
+      printf 'listener_state=ROWS_REPORTED (rows=%s; inspect exact local addresses above)\n' "$ss_rows"
+    else
+      printf 'listener_state=NO_ROWS_REPORTED (not proof of global process absence; Android may restrict socket visibility)\n'
+    fi
+  fi
 else
-  printf 'ss unavailable; listener check not performed\n'
+  printf 'listener_state=NOT_TESTED (ss unavailable)\n'
 fi
 
 printf '\n=== 2. RELEVANT PROCESS NAMES (BEST EFFORT) ===\n'
@@ -19,13 +32,31 @@ if command -v ps >/dev/null 2>&1; then
   # Android/Termux ps often lacks GNU-style "-o PID,COMM"; use portable default output.
   ps_output="$(ps -A 2>&1)"
   ps_rc=$?
-  if [ "$ps_rc" -eq 0 ]; then
-    printf '%s\n' "$ps_output" | awk 'NR == 1 || tolower($0) ~ /node|python|mcp|aurora/ { print substr($0, 1, 180) }'
+  if [ "$ps_rc" -ne 0 ]; then
+    printf '%s\n' "$ps_output"
+    printf 'process_state=INCONCLUSIVE (ps -A exit=%s)\n' "$ps_rc"
   else
-    printf 'ps -A failed (exit=%s); process evidence is INCONCLUSIVE\n' "$ps_rc"
+    printf '%s\n' "$ps_output" | awk '
+      NR == 1 { print substr($0, 1, 180); next }
+      NF {
+        rows++
+        if (tolower($0) ~ /node|python|mcp|aurora/) {
+          print substr($0, 1, 180)
+          matches++
+        }
+      }
+      END {
+        if (!rows) {
+          print "process_state=INCONCLUSIVE (ps returned header only or no visible process rows)"
+        } else if (!matches) {
+          print "process_state=NO_RELEVANT_NAME_MATCH (not proof of absence; process visibility may be restricted)"
+        } else {
+          print "process_state=RELEVANT_ROWS_REPORTED (matches=" matches "; inspect command names above)"
+        }
+      }'
   fi
 else
-  printf 'ps unavailable; process check not performed\n'
+  printf 'process_state=NOT_TESTED (ps unavailable)\n'
 fi
 
 printf '\n=== 3. KNOWN DIRECTORIES (NAMES ONLY) ===\n'
@@ -52,7 +83,7 @@ done
 
 printf '\n=== 4. HTTP HEALTH PATHS (LOOPBACK ONLY; NO SED REQUIRED) ===\n'
 if ! command -v python3 >/dev/null 2>&1; then
-  printf 'python3 unavailable; HTTP probe not performed\n'
+  printf 'http_state=NOT_TESTED (python3 unavailable)\n'
   printf '\n=== END: NO SERVICE STARTED ===\n'
   exit 2
 fi
