@@ -26,7 +26,7 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Interpret results
 
-- `HEALTH_REACHABLE`: a local HTTP health route returned 2xx. This is **not** an MCP initialize/tool-list handshake.
+- `HEALTH_REACHABLE`: a local HTTP health route returned 2xx. This is **not** MCP protocol-version negotiation, server discovery, or `tools/list` validation.
 - `HTTP_REACHABLE_NO_HEALTH_SUCCESS`: a process answered HTTP but neither known path returned 2xx; inspect the configured route and transport.
 - `NOT_CONNECTED`: neither health path returned an HTTP response. Check whether the intended HTTP bridge is running locally.
 - `NOT_TESTED_BY_HTTP_PROBE` for stdio: expected. Stdio servers communicate over stdin/stdout and cannot be verified using HTTP GET.
@@ -36,8 +36,8 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Separate MCP transport paths
 
-1. **Local stdio** (for example, a node entry point): the MCP host must launch that exact command with a scoped working directory and environment. This preflight deliberately does not execute local server code. A host's initialize and tools/list results are needed before claiming the stdio server works.
-2. **HTTP bridge**: first prove the local health route, then test the MCP protocol separately from a trusted client. ChatGPT access requires an explicitly configured, authorized reachable MCP endpoint supported by the active integration; a local port alone is not such a route.
+1. **Local stdio** (for example, a Node.js entry point): the configured MCP host must launch the exact, reviewed command with a scoped working directory and environment. Use a protocol-version-aware client: the current 2026-07-28 protocol uses `server/discover` and per-request `_meta`; legacy protocols through 2025-11-25 use `initialize` followed by `notifications/initialized`. A dual-era client should probe `server/discover` first, then follow the version-negotiation and legacy-fallback rules in the official specification. After protocol negotiation, validate `tools/list`, schemas, and one harmless allowlisted read-only call before claiming end-to-end connectivity. This preflight deliberately does not execute local server code.
+2. **HTTP bridge**: first prove the local health route, then use a trusted client to negotiate the protocol era and validate `tools/list`. For modern Streamable HTTP requests, the protocol-version metadata and `MCP-Protocol-Version` header must agree. ChatGPT access requires an explicitly configured, authorized reachable MCP endpoint supported by the active integration; a local port alone is not such a route.
 3. **Remote tunnel**: do not expose an unauthenticated endpoint publicly. Require HTTPS, authentication, a narrow tool allowlist, bounded request sizes/timeouts, audit receipts, default-deny behavior, and human approval for writes. Do not paste tokens into chat or audit output.
 
 ## Current evidence boundary
@@ -49,7 +49,7 @@ The Termux transcript at **2026-10-26 17:36:42–17:36:43 UTC** showed:
 - The two HTTP GETs to `127.0.0.1:8787/healthz` and `/health` both returned `ConnectionRefusedError`. That is direct evidence that the HTTP target refused connection at that timestamp.
 - The diagnostic found both known source directories and listed filenames only. It did not read source or logs.
 
-A refused HTTP connection does not rule out a stdio MCP server. No MCP initialize/tools/list handshake was performed. Re-run the diagnostic when the service configuration or runtime changes to refresh the device evidence.
+A refused HTTP connection does not rule out a stdio MCP server. No MCP version discovery, legacy initialization, `tools/list`, or read-only tool call was performed by this diagnostic. Follow the version-aware checklist in [MCP protocol-era readiness](MCP_PROTOCOL_ERA_READINESS.md) when the exact configured entry point has been reviewed.
 
 ## Acceptance tests
 
@@ -57,7 +57,7 @@ A refused HTTP connection does not rule out a stdio MCP server. No MCP initializ
 - Canonicalize `localhost` to numeric IPv4 loopback and use raw IPv6 loopback for socket connections.
 - Issue only the two documented HTTP GET requests.
 - Bound response-body consumption and never disclose response bodies or request headers.
-- Distinguish HTTP health from MCP handshake and from stdio reachability.
+- Distinguish HTTP health from protocol-era negotiation, tool discovery, and stdio reachability.
 - Interpret netlink/permission errors and header-only process output as inconclusive.
 - Use test doubles for shell diagnostics; automated tests must not require an active HTTP server.
 - No port scan, MCP tool invocation, server launch, credential access, persistence, or writes.
