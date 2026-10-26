@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   audit:
@@ -18,7 +17,7 @@ jobs:
       run:
         working-directory: osint-toolkit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -37,10 +36,12 @@ jobs:
         run: bandit -q -r src
       - name: Generate environment SBOM
         run: cyclonedx-py environment --output-format JSON --output-file osint-toolkit-sbom.cdx.json
-      - name: Scan repository for secrets
-        uses: gitleaks/gitleaks-action@v2
+      - name: Scan repository for secrets (no PR comments)
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
