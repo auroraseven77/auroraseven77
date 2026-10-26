@@ -1,0 +1,14 @@
+services:
+  osint-toolkit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["--help"]
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    restart: "no"
