@@ -380,23 +380,70 @@ def _report_payload(report: dict[str, Any]) -> bytes:
     return (json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
 
 
-def _publish_report(repo: Path, token_path: Path, report: dict[str, Any]) -> str:
+def _existing_report(
+    repo: Path, task: dict[str, Any]
+) -> tuple[dict[str, Any], str] | None:
+    """Return a prior report for this exact task identity without rerunning it."""
+    task_id = task["task_id"]
+    source_sha = task["sha"]
+    report_rel = f"{RESULT_ROOT}/{task_id}--{source_sha[:12]}.json"
+    result_branch = f"automation/termux-results/{task_id}-{source_sha[:12]}"
+    existing = _git(repo, "ls-remote", "--heads", "origin", f"refs/heads/{result_branch}")
+    if not existing:
+        return None
+
+    _git(repo, "fetch", "--no-tags", "origin", f"refs/heads/{result_branch}")
+    result = subprocess.run(
+        ["git", "-C", str(repo), "show", f"FETCH_HEAD:{report_rel}"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode:
+        raise WorkerError("existing result branch does not contain its expected report")
+    try:
+        report = json.loads(result.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise WorkerError("existing result report is not valid UTF-8 JSON") from exc
+
+    expected = {
+        "task_id": task_id,
+        "pr": task["pr"],
+        "source_sha": source_sha,
+        "suite": task["suite"],
+        "result_branch": result_branch,
+    }
+    if any(report.get(key) != value for key, value in expected.items()):
+        raise WorkerError("existing result report identity mismatch; refusing to overwrite it")
+    if report.get("outcome") not in {
+        "passed", "failed", "timeout", "stale_commit", "runner_error"
+    }:
+        raise WorkerError("existing result report has an unknown outcome")
+    return report, result_branch
+
+
+def _publish_report(
+    repo: Path, token_path: Path, report: dict[str, Any]
+) -> tuple[dict[str, Any], str]:
     """Publish one append-only result branch; never push to main or the source PR."""
+    task = {
+        "task_id": report["task_id"],
+        "pr": report["pr"],
+        "sha": report["source_sha"],
+        "suite": report["suite"],
+    }
+    prior = _existing_report(repo, task)
+    if prior is not None:
+        return prior
+
     task_id = report["task_id"]
     source_sha = report["source_sha"]
     report_rel = f"{RESULT_ROOT}/{task_id}--{source_sha[:12]}.json"
     result_branch = f"automation/termux-results/{task_id}-{source_sha[:12]}"
     report["result_branch"] = result_branch
     payload = _report_payload(report)
-
-    # Idempotent retry: if this exact report branch already exists, require byte identity.
-    existing = _git(repo, "ls-remote", "--heads", "origin", f"refs/heads/{result_branch}")
-    if existing:
-        _git(repo, "fetch", "--no-tags", "origin", f"refs/heads/{result_branch}")
-        remote_payload = _git(repo, "show", f"FETCH_HEAD:{report_rel}").encode("utf-8") + b"\n"
-        if remote_payload != payload:
-            raise WorkerError("result branch exists with different bytes; refusing to overwrite it")
-        return result_branch
 
     _git(repo, "fetch", "--no-tags", "origin", "refs/heads/main", timeout=90)
     main_sha = _git(repo, "rev-parse", "FETCH_HEAD^{commit}")
@@ -409,7 +456,7 @@ def _publish_report(repo: Path, token_path: Path, report: dict[str, Any]) -> str
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(payload)
             _git(report_worktree, "add", "--", report_rel)
-            commit = _git(
+            _git(
                 report_worktree,
                 "-c", "user.name=Aurora Termux Worker",
                 "-c", "user.email=aurora-termux-worker@users.noreply.github.com",
@@ -425,7 +472,7 @@ def _publish_report(repo: Path, token_path: Path, report: dict[str, Any]) -> str
             )
         finally:
             _git(repo, "worktree", "remove", "--force", str(report_worktree), timeout=60)
-    return result_branch
+    return report, result_branch
 
 
 def _load_state(path: Path) -> dict[str, str]:
@@ -490,8 +537,20 @@ def run_worker(repo: Path, state_dir: Path, token_path: Path) -> int:
             raise WorkerError("token file must have mode 0600 or stricter")
 
         for task in pending:
+            prior = _existing_report(repo, task)
+            if prior is not None:
+                report, result_branch = prior
+                completed[task["task_id"]] = task["sha"]
+                _save_state(state_path, completed)
+                print(
+                    f"AURORA_WORKER_ALREADY_REPORTED task={task['task_id']} "
+                    f"outcome={report['outcome']} pr={task['pr']} "
+                    f"sha={task['sha']} branch={result_branch}"
+                )
+                continue
+
             report = _run_suite(repo, task)
-            result_branch = _publish_report(repo, token_path, report)
+            report, result_branch = _publish_report(repo, token_path, report)
             completed[task["task_id"]] = task["sha"]
             _save_state(state_path, completed)
             print(
