@@ -18,6 +18,12 @@ For a broader Android-compatible diagnostic of listeners, best-effort process na
 
 This script uses `ps -A` rather than GNU-specific `ps -o PID,COMM`, requires no `sed`, and does not install packages or start/stop services. It displays candidate file names only (not file contents) and performs the same bounded loopback HTTP GET checks. It captures listener-command exit/output and flags typical Android netlink/permission errors as `INCONCLUSIVE`. A header-only process table is also `INCONCLUSIVE`; a process list with no matching command names is explicitly not treated as proof of absence.
 
+For a bounded, read-only inventory of the known local source folders, run:
+
+    bash scripts/aurora_mcp_source_inventory.sh
+
+The inventory hashes only top-level regular `.js`, `.cjs`, `.mjs`, and `.py` files plus the bounded `package.json` manifest, with a 4 MiB per-file and 64-file per-root limit. For code files it also reports counts and up to eight line numbers per category for fixed heuristic markers covering process execution, network clients/listeners, filesystem mutation, environment/credential access, dynamic code, MCP protocol/tool registration, and authorization/approval. A `manual_review_suggested` flag highlights selected categories for human inspection, but is not a vulnerability verdict, proof of runtime behavior, or an execution decision. Line-number arrays are truncated when a category matches more than eight lines. Source files are read for hashing and heuristic matching but their contents are never printed. `package.json` is read within the size limit to compute its digest and parse an allowlist of metadata/script names; package script command values are never emitted or executed. The tool does not read logs, `.env` files, backups, lockfiles, or JSONL ledgers, does not access the network or write files, and does not start or stop project/service processes. It reports names, sizes, SHA-256 digests, heuristic marker counts/locations, an allowlist of manifest metadata, and its limits. Share the output only after reviewing it for local path/file-name sensitivity.
+
 An alternate local loopback port may be supplied explicitly to the Python preflight:
 
     python3 scripts/aurora_mcp_preflight.py --host 127.0.0.1 --port 8787 --timeout 2
@@ -42,14 +48,14 @@ The tool refuses non-loopback hosts by design. It does not scan ports or probe p
 
 ## Current evidence boundary
 
-The Termux transcript at **2026-10-26 17:36:42–17:36:43 UTC** showed:
+Two Termux transcripts were supplied on **2026-10-26**:
 
-- `ss -ltn` printed `Cannot open netlink socket: Permission denied`, followed by a header but no listener rows. Listener visibility is therefore **INCONCLUSIVE**, not verified empty.
-- `ps -A` displayed only its header. Process visibility is **INCONCLUSIVE**; no process-absence claim is justified.
-- The two HTTP GETs to `127.0.0.1:8787/healthz` and `/health` both returned `ConnectionRefusedError`. That is direct evidence that the HTTP target refused connection at that timestamp.
-- The diagnostic found both known source directories and listed filenames only. It did not read source or logs.
+- **17:36:42–17:36:43 UTC:** `ss -ltn` printed `Cannot open netlink socket: Permission denied`, followed by a header but no listener rows. Listener visibility was **INCONCLUSIVE**, not verified empty. `ps -A` displayed only its header in that run, so process visibility was **INCONCLUSIVE**.
+- **17:52:20–17:52:21 UTC:** `ss -ltn` again reported a netlink permission error, so listener visibility remained **INCONCLUSIVE**. The script emitted `NO_RELEVANT_NAME_MATCH`; by its logic, that means at least one visible data row was parsed but none matched the candidate names `node|python|mcp|aurora`. The script did not print unrelated process rows; this is not proof that the MCP process is absent.
+- Both runs reported `ConnectionRefusedError` for `127.0.0.1:8787/healthz` and `/health`. The later result is timestamped `2026-10-26T17:52:21.356942+00:00`. This is direct evidence that those HTTP connections were refused at that time, not evidence about stdio transport.
+- The runs listed filenames in the two known directories but did not read source files or logs. The latest inventory shows `mcp-aurora` and `mcp-aurora-server` are not detected as Git worktrees by that check; no claim is made about their provenance.
 
-A refused HTTP connection does not rule out a stdio MCP server. No MCP initialize/tools/list handshake was performed. Re-run the diagnostic when the service configuration or runtime changes to refresh the device evidence.
+A refused HTTP connection does not rule out a stdio MCP server. No MCP initialize/tools/list handshake was performed. The separate source inventory tool hashes a bounded allowlist of top-level code files and prints only digests and selected package metadata; it does not establish server execution or MCP compatibility.
 
 ## Acceptance tests
 
