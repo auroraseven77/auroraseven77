@@ -23,7 +23,7 @@ curl -fsSLo aurora_mirror_sync.sh "$BASE/aurora_mirror_sync.sh"
 curl -fsSLo install_termux_mirror_job.sh "$BASE/install_termux_mirror_job.sh"
 printf '%s\n' \
   '046458b094b899b666a2d67311892864bc609cc2c79b3f3efa3eed83545c00df  aurora_mirror_sync.sh' \
-  '31a460f87ade92ea6611510c4a52b4c20660a42230d768a77faada5e748e82f8  install_termux_mirror_job.sh' > SHA256SUMS
+  '458be1d39761788222a722e521c7cc87729374ecd110ee918a6816e48a5b923a  install_termux_mirror_job.sh' > SHA256SUMS
 sha256sum -c SHA256SUMS
 bash install_termux_mirror_job.sh
 ```
