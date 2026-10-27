@@ -54,7 +54,7 @@ def compute_candidate_evaluation(
         + w_v * metrics.feasibility
         - w_r * metrics.risk
     )
-    score = round(max(0.0, min(1.0, raw_score)), 4)
+    score = max(0.0, min(1.0, raw_score))
     return CandidateEvaluation(
         intent=intent,
         confidence=metrics.confidence,
@@ -227,7 +227,7 @@ async def process_intent_lifecycle(
     k_n = round(k_n_raw, 6)
     events.append(
         LifecycleEvent(
-            state="consensus" if k_n >= entropy_consensus_threshold and selected_score >= s_min else "resolving",
+            state="consensus" if k_n_raw >= entropy_consensus_threshold and selected_score >= s_min else "resolving",
             message="Normalized Shannon entropy and consensus circuit evaluated.",
             metadata={
                 "entropy_normalized": h_n,
@@ -240,11 +240,8 @@ async def process_intent_lifecycle(
     )
 
     if (
-        len(candidates) > 1
-        and (
-            k_n < entropy_consensus_threshold
-            or selected_score < s_min
-        )
+        k_n_raw < entropy_consensus_threshold
+        or selected_score < s_min
     ):
         events.append(
             LifecycleEvent(
