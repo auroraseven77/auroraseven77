@@ -1,0 +1,32 @@
+name: Aurora Termux mirror sync validation
+
+on:
+  pull_request:
+    paths:
+      - "integrations/aurora-termux-sync/**"
+      - ".github/workflows/aurora-termux-sync.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-termux-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          bash -n integrations/aurora-termux-sync/aurora_mirror_sync.sh
+          bash -n integrations/aurora-termux-sync/install_termux_mirror_job.sh
+          bash -n integrations/aurora-termux-sync/test_mirror_sync.sh
+          bash -n integrations/aurora-termux-sync/uninstall_termux_mirror_job.sh
+      - name: Run synthetic sync safety tests
+        run: bash integrations/aurora-termux-sync/test_mirror_sync.sh
