@@ -1,0 +1,36 @@
+name: Termux worker validation
+
+on:
+  pull_request:
+    paths:
+      - "integrations/aurora-termux-worker/**"
+      - ".github/workflows/termux-worker-validation.yml"
+  push:
+    branches:
+      - "feat/termux-bounded-test-worker-20261027"
+    paths:
+      - "integrations/aurora-termux-worker/**"
+      - ".github/workflows/termux-worker-validation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: termux-worker-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile worker
+        working-directory: integrations/aurora-termux-worker
+        run: python -m py_compile aurora_termux_worker.py test_aurora_termux_worker.py
+      - name: Run worker validation tests
+        working-directory: integrations/aurora-termux-worker
+        run: python -m unittest -v test_aurora_termux_worker.py
