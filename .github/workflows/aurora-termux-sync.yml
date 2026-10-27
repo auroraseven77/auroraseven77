@@ -22,16 +22,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect archive checksum and integrity
+      - name: Check shell syntax
         run: |
-          sha256sum integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip
-          unzip -tq integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip
-      - name: Extract and validate sync-only package
-        shell: bash
-        run: |
-          work="$RUNNER_TEMP/aurora-termux-mirror-sync"
-          mkdir -p "$work"
-          unzip -q integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip -d "$work"
-          package="$work/package/aurora-termux-mirror-sync"
-          for script in "$package"/*.sh; do bash -n "$script"; done
-          bash "$package/test_mirror_sync.sh"
+          bash -n integrations/aurora-termux-sync/aurora_mirror_sync.sh
+          bash -n integrations/aurora-termux-sync/install_termux_mirror_job.sh
+          bash -n integrations/aurora-termux-sync/test_mirror_sync.sh
+          bash -n integrations/aurora-termux-sync/uninstall_termux_mirror_job.sh
+      - name: Run synthetic sync safety tests
+        run: bash integrations/aurora-termux-sync/test_mirror_sync.sh
