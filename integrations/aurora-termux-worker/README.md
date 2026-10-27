@@ -57,13 +57,15 @@ Because the repository is public, result reports are public. Do not put credenti
 
 This worker is **not a security sandbox**. Test code runs under the Termux user and can potentially read that user's files or access the network. The temporary HOME and stripped environment reduce accidental exposure; they do not create an OS security boundary. Only enqueue owner-controlled source commits and review any new suite before changing the allowlist. Do not execute untrusted contributor PR code on the phone.
 
-The worker checks the exact PR head SHA to avoid running a stale task, but this alone does not prove that the PR is benign. A failed, timed-out, or stale test is reported as failure evidence, not silently retried as a pass.
+The worker checks the exact PR head SHA to avoid running a stale task, but this alone does not prove that the PR is benign. A failed, timed-out, or stale test is reported as failure evidence, not silently retried as a pass. A timed-out suite is terminated as a process group so child processes do not intentionally outlive the test timeout.
 
 ## One-time activation, not performed by this PR
 
-The isolated mirror currently syncs only `main`; this worker lives on its own branch until reviewed. To activate later, the owner must explicitly choose how to deploy the reviewed worker to Termux, configure a repository-scoped write token, initialize the queue branch, and schedule a separate Termux job. This PR does not install packages, start a service, modify the device, or change the existing mirror job.
+The isolated mirror currently syncs only `main`; this worker lives on its own branch until reviewed. To activate later, the owner must choose the reviewed deployment commit, configure a repository-scoped write token, initialize the queue branch, and schedule the separate Termux job. This PR does not install packages, start a service, modify the device, or change the existing mirror job.
 
-For Android reliability, a 15-minute periodic job is a reasonable target, subject to Android/Termux job scheduling and battery/network constraints. Polls may be delayed by the operating system. The existing six-hour mirror-sync job remains separate and unchanged.
+After the PR is accepted and the six-hour mirror sync has pulled the worker into `main`, the one-time installer is `integrations/aurora-termux-worker/install_termux_worker_job.sh`. It checks the isolated mirror and dependencies, prompts for a token without echoing it only if no token file exists, writes the token as mode `0600`, installs the worker under `~/.local/lib`, and registers job `517704` on a 15-minute period. It does not run a task immediately and it does not install packages. The user must create the fine-grained token in GitHub settings; do not paste the token into a chat.
+
+For Android reliability, a 15-minute periodic job is a target, subject to Android/Termux scheduling and battery/network constraints. Polls may be delayed by the operating system. The existing six-hour mirror-sync job remains separate and unchanged.
 
 ## Host-side acceptance tests
 
