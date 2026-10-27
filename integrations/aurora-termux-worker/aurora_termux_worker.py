@@ -15,6 +15,7 @@ import json
 import os
 import platform
 import re
+import signal
 import shutil
 import stat
 import subprocess
@@ -301,22 +302,45 @@ def _run_suite(repo: Path, task: dict[str, Any]) -> dict[str, Any]:
                 env = _test_environment(temp_root)
                 try:
                     with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
-                        result = subprocess.run(
+                        process = subprocess.Popen(
                             command,
                             cwd=checkout,
                             env=env,
                             stdin=subprocess.DEVNULL,
                             stdout=stdout_file,
                             stderr=stderr_file,
-                            timeout=task["timeout_seconds"],
-                            check=False,
+                            start_new_session=True,
                             preexec_fn=_resource_limits(task["timeout_seconds"]),
                         )
-                    report["exit_code"] = result.returncode
-                    report["outcome"] = "passed" if result.returncode == 0 else "failed"
-                except subprocess.TimeoutExpired:
-                    report["outcome"] = "timeout"
-                    report["exit_code"] = 124
+                        timed_out = False
+                        try:
+                            return_code = process.wait(timeout=task["timeout_seconds"])
+                        except subprocess.TimeoutExpired:
+                            timed_out = True
+                            # Kill the whole process group so children cannot outlive
+                            # a timed-out test suite on the phone.
+                            try:
+                                os.killpg(process.pid, signal.SIGTERM)
+                            except ProcessLookupError:
+                                pass
+                            try:
+                                process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                try:
+                                    os.killpg(process.pid, signal.SIGKILL)
+                                except ProcessLookupError:
+                                    pass
+                                process.wait()
+                    if timed_out:
+                        report["outcome"] = "timeout"
+                        report["exit_code"] = 124
+                    else:
+                        report["exit_code"] = return_code
+                        report["outcome"] = "passed" if return_code == 0 else "failed"
+                except OSError as exc:
+                    report["outcome"] = "runner_error"
+                    report["exit_code"] = 126
+                    report["stderr_tail"] = f"Could not start test command: {type(exc).__name__}"
                 report["stdout_tail"] = sanitize_log(stdout_path.read_bytes()) if stdout_path.exists() else ""
                 report["stderr_tail"] = sanitize_log(stderr_path.read_bytes()) if stderr_path.exists() else ""
             finally:
