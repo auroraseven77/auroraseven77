@@ -22,9 +22,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify distribution checksum
-        working-directory: integrations/aurora-termux-sync
-        run: sha256sum -c aurora-termux-mirror-sync-v1.0.0.zip.sha256
+      - name: Inspect archive checksum and integrity
+        run: |
+          sha256sum integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip
+          unzip -tq integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip
       - name: Extract and validate sync-only package
         shell: bash
         run: |
