@@ -4,6 +4,14 @@ Toolkit modular de **OSINT, reconhecimento e auditoria autorizada**, integrado a
 
 > ⚠️ Use somente em ativos próprios, laboratórios ou alvos com autorização explícita. Dados públicos não significam autorização para exploração.
 
+
+## Installation and API reference
+
+- [Safe installation and offline first run](docs/INSTALL.md)
+- [Python API and authority boundaries](docs/API-REFERENCE.md)
+
+The default CLI requires explicit scope for passive collection. Report generation is local/offline and derived risk remains advisory.
+
 ## MVP executável
 
 O pacote `0.1.0` implementa somente coleta conservadora:
