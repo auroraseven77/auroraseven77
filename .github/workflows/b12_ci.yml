@@ -38,5 +38,5 @@ jobs:
             b1_motor/tests/test_ansatz_topology_b12.py \
             b1_motor/tests/test_hamiltonian_b12.py \
             b1_motor/tests/test_observables_api.py \
-            b1_motor/tests/test_vqe_b12.py \\
+            b1_motor/tests/test_vqe_b12.py \
             b1_motor/tests/test_optimizer_contract.py
