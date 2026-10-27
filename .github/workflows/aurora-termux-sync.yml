@@ -1,0 +1,36 @@
+name: Aurora Termux mirror sync validation
+
+on:
+  pull_request:
+    paths:
+      - "integrations/aurora-termux-sync/**"
+      - ".github/workflows/aurora-termux-sync.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-termux-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify distribution checksum
+        working-directory: integrations/aurora-termux-sync
+        run: sha256sum -c aurora-termux-mirror-sync-v1.0.0.zip.sha256
+      - name: Extract and validate sync-only package
+        shell: bash
+        run: |
+          work="$RUNNER_TEMP/aurora-termux-mirror-sync"
+          mkdir -p "$work"
+          unzip -q integrations/aurora-termux-sync/aurora-termux-mirror-sync-v1.0.0.zip -d "$work"
+          package="$work/package/aurora-termux-mirror-sync"
+          for script in "$package"/*.sh; do bash -n "$script"; done
+          bash "$package/test_mirror_sync.sh"
