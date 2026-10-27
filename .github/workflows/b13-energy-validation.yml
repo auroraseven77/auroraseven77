@@ -1,0 +1,47 @@
+name: B1.3 energy validation
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "b1_motor/b13/**"
+      - "b1_motor/tests/test_b13_energy_validation.py"
+      - "b1_motor/tests/test_ed_reference_b13.py"
+      - "b1_motor/tests/test_ed_tfim_contract_b13.py"
+      - ".github/workflows/b13-energy-validation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b13-energy-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  b13-tests:
+    name: B1.3 tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: python -m pip install numpy pytest pydantic
+      - name: Run B1.3 and interface regression tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest -q \
+            b1_motor/tests/test_b13_energy_validation.py \
+            b1_motor/tests/test_ed_reference_b13.py \
+            b1_motor/tests/test_ed_tfim_contract_b13.py \
+            b1_motor/tests/test_ansatz_b12.py \
+            b1_motor/tests/test_hamiltonian_b12.py \
+            b1_motor/tests/test_observables_api.py \
+            b1_motor/tests/test_vqe_b12.py
