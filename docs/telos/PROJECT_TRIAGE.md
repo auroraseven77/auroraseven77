@@ -85,7 +85,7 @@ Critério de conclusão: testes passam na base escolhida ou demonstram, com falh
 ### Contratos caracterizados e proposta de destino
 
 1. **Score negativo:** preservar o comportamento atual de rejeitar `raw_score < 0`; não portar clamp implícito.
-2. **Desempate:** a main usa igualdade exata para acionar SHA-256. O conjunto caracterizado testa diferenças de (0.5\times10^{-9}), (1\times10^{-9}) e (2\times10^{-9}). A proposta v2.1 trata apenas `abs(delta) < 1e-9` como empate. Antes de alterar a produção, registrar decisão explícita: igualdade exata ou tolerância estrita inferior a (10^{-9}).
+2. **Desempate:** a main usa igualdade exata para acionar SHA-256. O conjunto caracterizado testa diferenças de 0.5e-9, 1e-9 e 2e-9. A proposta v2.1 trata apenas `abs(delta) < 1e-9` como empate. Antes de alterar a produção, registrar decisão explícita: igualdade exata ou tolerância estrita inferior a (10^{-9}).
 3. **Bruto versus arredondado:** a main arredonda o score calculado a 4 casas e `H_N/K_N` a 6 casas; a caracterização encontrou uma fronteira em que `K_N` bruto fica abaixo do limite, mas `K_N` arredondado alcança o limite configurado. **Recomendação técnica:** usar valores brutos para decisões e valores arredondados apenas para apresentação/telemetria, após decidir e documentar a mudança de contrato e compatibilidade da API.
 4. **Autorização:** os testes confirmam que um score alto não contorna o gate: candidato rejeitado permanece `blocked`, sem execução de `execute_command_securely`. Preservar esse isolamento independentemente do algoritmo de consenso.
 
