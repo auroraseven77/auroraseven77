@@ -63,3 +63,33 @@ Antes de portar qualquer código dos PRs antigos, adicionar testes contra o `mai
 
 Critério de conclusão: testes passam na base escolhida ou demonstram, com falha reproduzível, uma divergência contratual. Nenhum resultado desta triagem substitui essa execução.
 
+
+## Decisão de portabilidade após caracterização — 2026-10-28
+
+### Evidência desta rodada
+
+- Base testada: branch *main*, HEAD `a3f51c544400ce1be49dc2b098d4b6a7600bd5b9`.
+- Caracterização: PR #57, HEAD `d872bc39e1be60d777e5087a9926d67f49d01f94`; 7/7 check-runs concluídos com sucesso.
+- Logs do GitHub Actions: `pytest tests/` coletou e passou **61 testes** em Python 3.11 (0,58 s) e **61 testes** em Python 3.12 (0,69 s). `pytest tests/ TUU/tests/` coletou e passou **80 testes** (0,53 s). O log confirma execução de todos os testes em `tests/test_tuu_main_characterization.py`.
+- A suíte caracteriza o comportamento atual; ela não decide, por si só, qual regra normativa futura deve ser escolhida.
+
+### Decisão por PR antigo
+
+| PR | Decisão | Fundamentação e porta de entrada |
+|---|---|---|
+| **#1 — invariantes v2.1 / RAW-first** | **Não integrar inteiro. Avaliar portabilidade seletiva após congelar contrato.** | A branch está divergente e a main atual rejeita score bruto negativo. O PR #1 muda esse comportamento para clamp em zero; esse trecho não deve ser portado. A tolerância de desempate `< 1e-9` e a decisão usando `K_N` bruto diferem do comportamento atual caracterizado; exigem decisão normativa antes da implementação. `InvariantEngine` e testes independentes podem ser avaliados em patch mínimo depois desse contrato, sem quarantinar a suíte de integração atual. |
+| **#2 — packaging** | **Não integrar inteiro. Separar possível mudança de empacotamento.** | A main consultada não contém `pyproject.toml`; existe uma necessidade legítima a avaliar. Porém a branch #2 remove dois testes de integração existentes e os check-runs históricos falharam durante coleta por `RecursionError` em `JsonValue`. A main atual já usa `typing_extensions.TypeAliasType`; não reaplicar essa correção sem reproduzir. Um novo patch de packaging deve preservar a suite atual, incluir descoberta para `TUU*` e `Tuu_panel*` e declarar dependências diretas usadas pelo pacote; testar wheel/editable install em Python 3.11/3.12. |
+| **#3 — contrato MPS/HERMES** | **Já mesclado; nenhuma portabilidade pendente.** | GitHub confirma merge em 2026-10-26. |
+| **#30 — fixture/concurrency/lifecycle** | **Não integrar inteiro.** | A branch está 118 commits atrás da main. Seu diff troca o teste de score negativo de rejeição para clamp em zero, contradizendo a caracterização atual. As atualizações da API de lifecycle e o isolamento por `LifecycleResult.events` já aparecem nos testes da main; a integração da branch antiga falhou ao coletar testes que importavam `TUUCore`, ausente da API atual. Só reconsiderar asserções que se provarem únicas e ainda necessárias após comparação individual. |
+
+### Contratos caracterizados e proposta de destino
+
+1. **Score negativo:** preservar o comportamento atual de rejeitar `raw_score < 0`; não portar clamp implícito.
+2. **Desempate:** a main usa igualdade exata para acionar SHA-256. O conjunto caracterizado testa diferenças de (0.5\times10^{-9}), (1\times10^{-9}) e (2\times10^{-9}). A proposta v2.1 trata apenas `abs(delta) < 1e-9` como empate. Antes de alterar a produção, registrar decisão explícita: igualdade exata ou tolerância estrita inferior a (10^{-9}).
+3. **Bruto versus arredondado:** a main arredonda o score calculado a 4 casas e `H_N/K_N` a 6 casas; a caracterização encontrou uma fronteira em que `K_N` bruto fica abaixo do limite, mas `K_N` arredondado alcança o limite configurado. **Recomendação técnica:** usar valores brutos para decisões e valores arredondados apenas para apresentação/telemetria, após decidir e documentar a mudança de contrato e compatibilidade da API.
+4. **Autorização:** os testes confirmam que um score alto não contorna o gate: candidato rejeitado permanece `blocked`, sem execução de `execute_command_securely`. Preservar esse isolamento independentemente do algoritmo de consenso.
+
+### Próximo gate
+
+Não portar código ainda. Primeiro registrar a decisão normativa sobre tolerância de desempate e sobre qual precisão alimenta as transições de lifecycle. Depois criar uma branch nova a partir do HEAD atual de main para um patch mínimo; manter score negativo como rejeição; preservar todos os testes existentes; executar a matriz CI antes de revisar qualquer merge. Nenhuma PR antiga deve ser mesclada como atalho.
+
