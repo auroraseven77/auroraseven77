@@ -37,3 +37,29 @@
 ## Limite de evidência
 
 GitHub confirmou acesso a `auroraseven77/auroraseven77` e a `main` com HEAD observado durante a inspeção: `09664068c68d0a2c7f31128e0a9a3ba164b5cd97`. Os outros repositórios consultados foram `NOT_FOUND` pelo conector; isso não prova sua inexistência em outro escopo. O plugin privado `aurora-assistant` foi observado em v0.4.0. Os resultados de teste desta rodada são distintos dos resultados históricos apenas relatados.
+
+
+## Adendo de estado remoto — 2026-10-28
+
+Esta seção complementa a triagem datada de 2026-10-26; não substitui os registros históricos nem afirma que os testes foram executados nesta sessão.
+
+- **Base consultada:** branch `main`, HEAD `a3f51c544400ce1be49dc2b098d4b6a7600bd5b9` (commit de 2026-10-27: `fix(mps): return normalized observable expectations after truncation (#53)`).
+- **TELOS H1:** a saída Termux fornecida pelo operador reporta CRC/caminhos aprovados, 16/16 testes depois de definir `PYTHONPATH` e ledger exemplo válido. Esta atualização documental classifica essa evidência como reportada pelo operador, não como execução independente.
+- **PR #31 e #32:** ambas mescladas. A presente atualização não reabre nem altera essas PRs; é proposta nova em branch documental.
+- **PR #1 — invariantes v2.1:** aberto, branch `feat/tuu-v2.1-invariants`, HEAD `95706329ad7ecb95d8f3176024c511ee8d98e446`; comparação de refs: 14 commits à frente e 128 atrás de `main`; GitHub reportou `mergeable_state=dirty`. O HEAD consultado não tinha check-runs associados. Não deve ser integrado sem reconciliar o delta e validar toda a suite.
+- **PR #2 — packaging:** aberto, branch `fix/tuu-package-foundation-v2`, 1 commit à frente e 128 atrás de `main`; seus check-runs históricos em 2026-09-18 falharam durante coleta por `RecursionError` no alias recursivo de `JsonValue`. O `main` atual usa `TypeAliasType` em `TUU/authorization.py`, então a correção desse ponto não deve ser aplicada novamente sem reprodução atual. A branch também remove testes de integração preexistentes; preservar cobertura é requisito.
+- **PR #3 — contrato MPS/HERMES:** mesclada em 2026-10-26.
+- **PR #30 — fixture de ciclo de vida:** aberto, branch `audit/pr4-test-migration`, 3 commits à frente e 118 atrás de `main`. O check Core mais recente registrado para esse head foi sucesso, mas o pipeline de integração de 2026-10-16 falhou na coleta: os testes legados tentaram importar `TUUCore` que não existe no módulo `tuu_core` atual. Tratar como falha real de compatibilidade de testes, não como prova de falha de todo o core.
+- **Limite de acesso:** esses resultados foram lidos via GitHub API/conector. Nenhum checkout local, teste TUU nesta sessão, alteração do Termux ou acesso ao banco SQLite foi executado.
+
+## Próximos gates de caracterização TUU
+
+Antes de portar qualquer código dos PRs antigos, adicionar testes contra o `main` atual e executar os testes no checkout isolado com commit e ambiente registrados:
+
+1. **Score negativo:** caracterizar a rejeição de `raw_score < 0` e confirmar que a validação não converte silenciosamente score inválido em zero.
+2. **Desempate:** igualdade exata deve continuar determinística por SHA-256; decidir explicitamente se a regra normativa também define empate por `abs(delta) < 1e-9`. Testar abaixo, exatamente no limite e acima do limite, incluindo permutação da ordem de candidatos.
+3. **Bruto versus arredondado:** testar a diferença entre `H_N/K_N` em precisão bruta e os campos de apresentação arredondados; validar qual representação alimenta a decisão antes de portar a implementação RAW-first.
+4. **Isolamento da autorização:** provar que consenso/score nunca chama executor quando a autorização nega, e que score alto ou consenso unânime não altera a decisão do gate.
+
+Critério de conclusão: testes passam na base escolhida ou demonstram, com falha reproduzível, uma divergência contratual. Nenhum resultado desta triagem substitui essa execução.
+
