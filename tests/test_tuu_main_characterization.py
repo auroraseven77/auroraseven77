@@ -195,3 +195,24 @@ def test_high_score_cannot_bypass_authorization_or_invoke_executor() -> None:
     assert result.authorization.status == "rejected"
     assert result.execution is None
     execute.assert_not_called()
+
+
+def test_candidate_score_is_rounded_to_four_decimal_places_on_main() -> None:
+    metrics = AgentMetricOutput(
+        intent="echo",
+        confidence=0.8888,
+        historical_success=0.7777,
+        feasibility=0.6666,
+        risk=0.1111,
+    )
+    raw_score = (
+        0.4 * metrics.confidence
+        + 0.2 * metrics.historical_success
+        + 0.3 * metrics.feasibility
+        - 0.1 * metrics.risk
+    )
+
+    evaluated = compute_candidate_evaluation("echo", metrics)
+
+    assert evaluated.score == round(raw_score, 4)
+    assert evaluated.score != raw_score
