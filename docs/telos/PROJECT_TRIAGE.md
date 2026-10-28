@@ -89,7 +89,24 @@ Critério de conclusão: testes passam na base escolhida ou demonstram, com falh
 3. **Bruto versus arredondado:** a main arredonda o score calculado a 4 casas e `H_N/K_N` a 6 casas; a caracterização encontrou uma fronteira em que `K_N` bruto fica abaixo do limite, mas `K_N` arredondado alcança o limite configurado. **Recomendação técnica:** usar valores brutos para decisões e valores arredondados apenas para apresentação/telemetria, após decidir e documentar a mudança de contrato e compatibilidade da API.
 4. **Autorização:** os testes confirmam que um score alto não contorna o gate: candidato rejeitado permanece `blocked`, sem execução de `execute_command_securely`. Preservar esse isolamento independentemente do algoritmo de consenso.
 
+### Execução do gate RAW-first — 2026-10-28
+
+O gate anterior avançou para implementação seletiva, sem integrar PRs antigos:
+
+- PR #58: [feat(tuu): use raw precision for consensus and lifecycle gates](https://github.com/auroraseven77/auroraseven77/pull/58).
+- Branch: `feat/tuu-raw-first-main-20261028`.
+- Base: `main` HEAD `a3f51c544400ce1be49dc2b098d4b6a7600bd5b9`.
+- HEAD do PR: `1833b6bbc41e7a4abe3eda2de6e93376a0509225`.
+- Escopo: apenas `TUU/tuu_core.py` e o novo `tests/test_tuu_raw_first.py`; nenhum código B1.3 nem a branch `main) foi alterado.
+- Verificação: 7/7 checks GitHub Actions passaram. `pytest tests/`: 60 testes aprovados em Python 3.11 e 60 em Python 3.12. `pytest tests/ TUU/tests/`: 79 aprovados. Os logs identificam todos os oito testes RAW-first como aprovados.
+- Score negativo continua rejeitado; os scores candidatos e gates de lifecycle usam precisão bruta. A API pública `calculate_swarm_consensus` conserva a tupla de quatro valores arredondados para compatibilidade; `LifecycleResult` e eventos passam a expor campos brutos.
+- O desempate continua por igualdade exata e SHA-256. A tolerância `1e-9` não foi portada nem decidida nesta mudança.
+- PR #58 está aberto para revisão, sem merge. CI usa runners Linux; a validação Android/Termux não foi executada.
+
 ### Próximo gate
 
-Não portar código ainda. Primeiro registrar a decisão normativa sobre tolerância de desempate e sobre qual precisão alimenta as transições de lifecycle. Depois criar uma branch nova a partir do HEAD atual de main para um patch mínimo; manter score negativo como rejeição; preservar todos os testes existentes; executar a matriz CI antes de revisar qualquer merge. Nenhuma PR antiga deve ser mesclada como atalho.
+1. Revisar o diff e a semântica pública adicionada no PR #58; confirmar especialmente a compatibilidade dos campos `LifecycleResult` e a política para lifecycle com candidato único e score abaixo de `s_min`.
+2. Decidir em separado se a norma de desempate usa igualdade exata ou `abs(delta) < 1e-9`. Não combinar essa mudança com a correção RAW-first sem aprovação de contrato.
+3. Depois da revisão do PR #58, avaliar o empacotamento do PR #2 como alteração mínima independente, preservando a suíte completa. Nenhum PR antigo deve ser mesclado como atalho.
+4. Validar Termux separadamente apenas se/quanto necessário; CI Linux não comprova compatibilidade Android nem integração SQLite/WAL.
 
