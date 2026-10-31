@@ -171,9 +171,16 @@ export async function startAuroraBridge({
         return reject(code === 'BRIDGE_SESSION_LIMIT' ? 503 : 502, code);
       }
     }
+
+    if (req.method === 'DELETE') {
+      await closeSession(session);
+      res.writeHead(200, { 'cache-control': 'no-store' });
+      res.end();
+      return;
+    }
+
     try {
       await session.transport.handleRequest(req, res);
-      if (req.method === 'DELETE') await closeSession(session);
     } catch {
       reject(502, 'MCP_UPSTREAM_FAILURE');
     }
@@ -203,6 +210,7 @@ export async function startAuroraBridge({
     port: actual.port,
     tools: initialAllowed,
     sessionCount: () => sessions.size,
+    sessionIds: () => [...sessions.keys()],
     async close() {
       if (closing) return;
       closing = true;
