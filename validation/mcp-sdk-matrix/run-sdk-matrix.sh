@@ -14,6 +14,10 @@ PROJECTS=(
   "auroraseven77-b13-energy"
 )
 
+run_required() {
+  "$@" || return 1
+}
+
 command -v node >/dev/null || { echo 'ERROR: Node.js required' >&2; exit 2; }
 command -v npm >/dev/null || { echo 'ERROR: npm required' >&2; exit 2; }
 command -v sha256sum >/dev/null || { echo 'ERROR: sha256sum required' >&2; exit 2; }
@@ -50,41 +54,36 @@ run_one() {
   local evidence="$WORK/evidence/$version"
   rm -rf "$target" "$evidence"
   mkdir -p "$target" "$evidence"
-  cp -a "$ROOT/bridge/." "$target/"
+  run_required cp -a "$ROOT/bridge/." "$target/" || return 1
 
   (
     cd "$target"
     echo "=== SDK $version / REGISTRY METADATA ==="
-    npm view "@modelcontextprotocol/sdk@$version" version dist.tarball dist.integrity --json
+    run_required npm view "@modelcontextprotocol/sdk@$version" version dist.tarball dist.integrity --json || return 1
     echo "=== SDK $version / ACQUIRE EXACT PACKAGE ==="
-    npm install --ignore-scripts --save-exact "@modelcontextprotocol/sdk@$version"
+    run_required npm install --ignore-scripts --save-exact "@modelcontextprotocol/sdk@$version" || return 1
     echo "=== SDK $version / CLEAN LOCKFILE INSTALL ==="
     rm -rf node_modules
-    npm ci --ignore-scripts
+    run_required npm ci --ignore-scripts || return 1
     echo "=== SDK $version / INSTALLED DEPENDENCIES ==="
-    npm ls @modelcontextprotocol/sdk zod --depth=1
+    run_required npm ls @modelcontextprotocol/sdk zod --depth=1 || return 1
+    run_required cp package.json package-lock.json "$evidence/" || return 1
     echo "=== SDK $version / SIGNATURE AUDIT ==="
-    audit_rc=0
-    npm audit signatures || audit_rc=$?
-    printf 'npm_audit_signatures_exit=%s\n' "$audit_rc" > "$evidence/signature-audit-status.txt"
-    if [ "$audit_rc" -ne 0 ]; then
-      echo "ERROR: npm audit signatures failed for SDK $version (exit $audit_rc)" >&2
-      exit 20
-    fi
+    run_required npm audit signatures || return 1
+    printf 'npm_audit_signatures=PASS\n' > "$evidence/signature-audit-status.txt"
     echo "=== SDK $version / REAL SDK INTEGRATION ==="
-    HOME="$FIXTURE_HOME" \
+    run_required env HOME="$FIXTURE_HOME" \
       AURORA_EXPECTED_SDK_VERSION="$version" \
       AURORA_UPSTREAM_SERVER="$UPSTREAM" \
-      node --test integration-sdk.matrix.test.mjs
+      node --test integration-sdk.matrix.test.mjs || return 1
     echo "=== SDK $version / EVIDENCE ==="
-    node -e "const p=require('./node_modules/@modelcontextprotocol/sdk/package.json'); console.log(JSON.stringify({sdk:p.version,node:process.version,npm:process.env.npm_config_user_agent},null,2))"
-    sha256sum package.json package-lock.json integration-sdk.matrix.test.mjs \
+    run_required node -e "const p=require('./node_modules/@modelcontextprotocol/sdk/package.json'); console.log(JSON.stringify({sdk:p.version,node:process.version,npm:process.env.npm_config_user_agent},null,2))" || return 1
+    run_required sha256sum package.json package-lock.json integration-sdk.matrix.test.mjs \
       bridge-security.mjs tool-policy.mjs stdio-http-bridge.mjs \
-      "$UPSTREAM"
-    cp package.json package-lock.json "$evidence/"
-    sha256sum package.json package-lock.json integration-sdk.matrix.test.mjs \
+      "$UPSTREAM" || return 1
+    run_required sha256sum package.json package-lock.json integration-sdk.matrix.test.mjs \
       bridge-security.mjs tool-policy.mjs stdio-http-bridge.mjs \
-      "$UPSTREAM" > "$evidence/SHA256SUMS.txt"
+      "$UPSTREAM" > "$evidence/SHA256SUMS.txt" || return 1
     rm -rf node_modules
   )
 }
