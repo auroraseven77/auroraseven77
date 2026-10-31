@@ -76,6 +76,16 @@ async function connectClient(url, token = TOKEN) {
   return { client, transport };
 }
 
+async function terminateSession(endpoint, sessionId) {
+  return fetch(endpoint, {
+    method: 'DELETE',
+    headers: {
+      authorization: 'Bearer ' + TOKEN,
+      'mcp-session-id': sessionId
+    }
+  });
+}
+
 test('actual SDK: STDIO upstream and authenticated Streamable HTTP bridge', { timeout: 45000 }, async t => {
   assert.equal(sdkPackage.version, EXPECTED_SDK_VERSION, 'integration must use the selected exact SDK version');
   assert.ok(UPSTREAM && path.isAbsolute(UPSTREAM), 'AURORA_UPSTREAM_SERVER must point to the pinned v1.0.1 server');
@@ -154,9 +164,13 @@ test('actual SDK: STDIO upstream and authenticated Streamable HTTP bridge', { ti
   });
   assert.equal(invalidSession.status, 404, 'unknown MCP session must be rejected');
 
+  const sessionId = bridge.sessionIds()[0];
+  assert.equal(typeof sessionId, 'string', 'the test bridge must have one active session');
+  const terminated = await terminateSession(endpoint, sessionId);
+  assert.equal(terminated.status, 200, 'explicit MCP DELETE must terminate the session');
+  assert.equal(bridge.sessionCount(), 0, 'explicit MCP DELETE must release server-side session resources');
   await client.close();
   client = undefined;
-  assert.equal(bridge.sessionCount(), 0, 'client close must release the HTTP MCP session');
 });
 
 test('actual SDK: upstream discovery changes fail closed', { timeout: 30000 }, async t => {
@@ -170,7 +184,8 @@ test('actual SDK: upstream discovery changes fail closed', { timeout: 30000 }, a
     await client?.close().catch(() => {});
     await bridge.close();
   });
-  ({ client } = await connectClient('http://127.0.0.1:' + bridge.port + '/mcp'));
+  const endpoint = 'http://127.0.0.1:' + bridge.port + '/mcp';
+  ({ client } = await connectClient(endpoint));
   const listed = await client.listTools();
   assert.deepEqual(listed.tools.map(tool => tool.name).sort(), ['aurora.list_projects', 'aurora.read_evidence']);
   const result = await client.callTool({
@@ -178,9 +193,14 @@ test('actual SDK: upstream discovery changes fail closed', { timeout: 30000 }, a
     arguments: { project: 'auroraseven77-test', relative_path: 'CHANGELOG.md' }
   });
   assert.equal(result.isError, true, 'a tool no longer advertised upstream must not be invoked');
+
+  const sessionId = bridge.sessionIds()[0];
+  assert.equal(typeof sessionId, 'string');
+  const terminated = await terminateSession(endpoint, sessionId);
+  assert.equal(terminated.status, 200);
+  assert.equal(bridge.sessionCount(), 0);
   await client.close();
   client = undefined;
-  assert.equal(bridge.sessionCount(), 0);
 });
 
 test('actual SDK: bridge rejects non-loopback bind addresses', async () => {
