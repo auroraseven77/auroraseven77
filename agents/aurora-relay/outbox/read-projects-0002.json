@@ -1,0 +1,38 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "read-projects-0002",
+  "action": "MCP_LIST_PROJECTS",
+  "agent_version": "0.2.0",
+  "created_at": "2026-11-01T02:32:03.873Z",
+  "result": {
+    "status": "MCP_LIST_PROJECTS_OK",
+    "project_count": 6,
+    "projects": [
+      {
+        "name": "auroraseven77",
+        "exists": true
+      },
+      {
+        "name": "auroraseven77-test",
+        "exists": true
+      },
+      {
+        "name": "auroraseven77-v21-validation",
+        "exists": true
+      },
+      {
+        "name": "auroraseven77-b12-audit",
+        "exists": true
+      },
+      {
+        "name": "auroraseven77-b13-repro",
+        "exists": true
+      },
+      {
+        "name": "auroraseven77-b13-energy",
+        "exists": true
+      }
+    ]
+  },
+  "sha256": "0075ec83f4f1840f7c19f5774d48f9cdf07dcb01d40fa594afd01f09cbf02cb8"
+}
