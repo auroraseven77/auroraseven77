@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/auroraseven77/auroraseven77/blob/agent/aurora-relay/agents/aurora-relay/message.schema.json",
+  "title": "Aurora Relay Message v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "id",
+    "action"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "aurora-relay/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "action": {
+      "enum": [
+        "PING",
+        "MCP_DISCOVERY"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
