@@ -19,8 +19,12 @@ def _validate_term(sites: tuple[int, ...], operators: tuple[str, ...]) -> None:
         raise ValueError("sites and operators must have the same length")
     if len(set(sites)) != len(sites):
         raise ValueError("sites must not contain duplicates")
-    if any(not isinstance(site, (int, np.integer)) for site in sites):
-        raise TypeError("sites must contain only integers")
+    if any(
+        isinstance(site, (bool, np.bool_))
+        or not isinstance(site, (int, np.integer))
+        for site in sites
+    ):
+        raise TypeError("sites must contain only integers (not booleans)")
     if any(b <= a for a, b in zip(sites, sites[1:])):
         raise ValueError("sites must be strictly increasing")
     if any(operator not in _PAULI_SYMBOLS for operator in operators):
@@ -77,26 +81,50 @@ def _expectation_term(state, term: PauliTerm) -> complex:
     return complex(env[0, 0])
 
 
-def expectation(state, observable: PauliTerm | PauliSum) -> complex:
-    """Evaluate a Pauli observable directly on the MPS.
+def _norm_squared(state) -> float:
+    """Contract <psi|psi> without constructing a dense state vector."""
+    env = np.ones((1, 1), dtype=np.complex128)
+    for tensor in state.tensors:
+        if not isinstance(tensor, np.ndarray) or tensor.ndim != 3:
+            raise ValueError("state tensors must be rank-3 NumPy arrays")
+        if tensor.shape[0] != env.shape[0]:
+            raise ValueError("MPS tensor left bond is inconsistent with its environment")
+        env = np.einsum(
+            "ab,air,bis->rs",
+            env,
+            tensor.conj(),
+            tensor,
+            optimize=True,
+        )
+    value = complex(env[0, 0])
+    if not np.isfinite(value.real) or not np.isfinite(value.imag):
+        raise ValueError("MPS state norm must be finite")
+    if abs(value.imag) > 1e-10 or value.real <= 0.0:
+        raise ValueError("MPS state must have a positive real norm")
+    return float(value.real)
 
-    This is read-only: it does not mutate tensors, canonicalize, normalize,
-    truncate, or materialize a global statevector.
+
+def expectation(state, observable: PauliTerm | PauliSum) -> complex:
+    """Evaluate a normalized Pauli expectation directly on the MPS.
+
+    The value is <psi|O|psi>/<psi|psi>, so truncation-related loss of norm
+    does not silently scale the reported observable. The contraction is
+    read-only and never materializes a global state vector.
     """
     if not hasattr(state, "tensors") or not hasattr(state, "n_qubits"):
         raise TypeError("state must provide MPS tensors and n_qubits")
-
-    terms = (observable,) if isinstance(observable, PauliTerm) else observable.terms
     if not isinstance(observable, (PauliTerm, PauliSum)):
         raise TypeError("observable must be PauliTerm or PauliSum")
 
+    terms = (observable,) if isinstance(observable, PauliTerm) else observable.terms
     for term in terms:
         if any(site < 0 or site >= state.n_qubits for site in term.sites):
             raise ValueError(
                 f"observable site must satisfy 0 <= site < {state.n_qubits}"
             )
 
-    return sum(
+    numerator = sum(
         (term.coefficient * _expectation_term(state, term) for term in terms),
         0j,
     )
+    return numerator / _norm_squared(state)

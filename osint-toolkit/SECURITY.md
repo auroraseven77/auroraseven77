@@ -38,3 +38,14 @@ AUTHORIZED ACTION
 ```
 
 A IA pode classificar, resumir e correlacionar evidências, mas não recebe autoridade implícita para executar ações operacionais.
+
+
+## Reporting a vulnerability
+
+Do not publish credentials, personal information, raw target evidence, or a reproducible exploit against a third-party system in a public issue. Use GitHub private vulnerability reporting if enabled for this repository. If unavailable, contact the repository owner through an established private channel and provide only minimum sanitized details.
+
+Include the affected commit, file/version/environment, a minimal synthetic reproduction or sanitized test, impact/prerequisites/scope, and a proposed mitigation if known.
+
+## Current limitation
+
+The maintainers must verify whether GitHub private vulnerability reporting or another private contact route is actually available. This document does not claim that such a route is configured.

@@ -67,3 +67,38 @@ def test_observable_rejects_out_of_range_site():
 def test_pauli_sum_is_empty_identity():
     state = MPS(2)
     assert np.allclose(expectation(state, PauliSum(())), 0.0)
+
+def test_expectation_is_normalized_even_if_truncation_lost_norm():
+    state = MPS(2, bond_dim=2)
+    state.tensors[0] = state.tensors[0] * 2.0
+
+    value = expectation(
+        state,
+        PauliTerm(sites=(0,), operators=("Z",)),
+    )
+
+    assert np.allclose(value, 1.0)
+
+
+def test_expectation_rejects_zero_norm_state():
+    state = MPS(2, bond_dim=2)
+    state.tensors[0][:] = 0.0
+
+    with pytest.raises(ValueError, match="positive real norm"):
+        expectation(
+            state,
+            PauliTerm(sites=(0,), operators=("Z",)),
+        )
+
+
+def test_expectation_rejects_unsupported_observable_with_contract_error():
+    state = MPS(2, bond_dim=2)
+
+    with pytest.raises(TypeError, match="observable must be"):
+        expectation(state, object())
+
+
+def test_pauli_term_rejects_boolean_site_index():
+    with pytest.raises(TypeError, match="not booleans"):
+        PauliTerm(sites=(True,), operators=("Z",))
+

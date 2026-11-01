@@ -1,0 +1,38 @@
+name: OSINT Toolkit package build
+
+on:
+  pull_request:
+    paths:
+      - "osint-toolkit/**"
+      - ".github/workflows/osint-toolkit-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: osint-toolkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package and build tools
+        run: |
+          python -m pip install --upgrade pip build
+          python -m pip install -e .
+      - name: Build wheel and sdist
+        run: |
+          python -m build --outdir dist
+          test -s dist/*.whl
+          test -s dist/*.tar.gz
+      - name: Install built wheel and smoke-test command
+        run: |
+          python -m pip install --no-deps dist/*.whl
+          python -m pip check
+          python -c "from importlib.metadata import metadata, version; print(version('osint-toolkit')); print(metadata('osint-toolkit')['Requires-Python'])"
+          osint-toolkit --help

@@ -1,0 +1,36 @@
+name: OSINT Toolkit community template validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/ISSUE_TEMPLATE/osint-toolkit-bug.yml"
+      - ".github/workflows/osint-toolkit-community-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install YAML parser
+        run: python -m pip install pyyaml
+      - name: Validate issue template structure
+        run: |
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          path = Path(".github/ISSUE_TEMPLATE/osint-toolkit-bug.yml")
+          data = yaml.safe_load(path.read_text(encoding="utf-8"))
+          assert isinstance(data, dict)
+          assert {"name", "description", "title", "body"} <= data.keys()
+          ids = [item.get("id") for item in data["body"] if isinstance(item, dict) and item.get("id")]
+          assert ids and len(ids) == len(set(ids)), "missing or duplicate field ids"
+          assert {"version", "repro", "expected", "side_effects"} <= set(ids)
+          print({"template": str(path), "field_count": len(ids), "result": "PASS"})
+          PY
