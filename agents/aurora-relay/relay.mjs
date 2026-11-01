@@ -57,9 +57,10 @@ function readMcpCommand() {
 }
 async function discoverMcpTools() {
   const command = readMcpCommand();
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([, value]) => typeof value === "string")
-  );
+  const env = {};
+  for (const key of ["PATH", "HOME", "PREFIX", "TMPDIR", "LANG", "LC_ALL", "ANDROID_ROOT", "ANDROID_DATA"]) {
+    if (typeof process.env[key] === "string") env[key] = process.env[key];
+  }
   const transport = new StdioClientTransport({
     command: command[0],
     args: command.slice(1),
