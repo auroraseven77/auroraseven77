@@ -1,0 +1,5 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "evidence-meta-0003",
+  "action": "MCP_READ_EVIDENCE_METADATA"
+}
