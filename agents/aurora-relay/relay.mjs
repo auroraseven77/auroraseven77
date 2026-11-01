@@ -309,7 +309,7 @@ async function main() {
       }
     } else if (message.action === "CAPABILITIES") {
       result = getCapabilities();
-    } else if (message.action === "MCP_LIST_PROJECTS") 
+    } else if (message.action === "MCP_LIST_PROJECTS") {
       try {
         result = await listMcpProjects();
       } catch (error) {
