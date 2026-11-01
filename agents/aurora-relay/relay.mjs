@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const BRANCH = "agent/aurora-relay";
 const RELAY_PATH = "agents/aurora-relay";
 const PROJECT_TOOL = "aurora.list_projects";
