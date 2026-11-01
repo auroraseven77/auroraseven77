@@ -9,6 +9,9 @@ const VERSION = "0.2.0";
 const BRANCH = "agent/aurora-relay";
 const RELAY_PATH = "agents/aurora-relay";
 const PROJECT_TOOL = "aurora.list_projects";
+const READ_TOOL = "aurora.read_evidence";
+const READ_PROJECT = "auroraseven77";
+const READ_PATH = "README.md";
 const ALLOWED_PROJECTS = Object.freeze([
   "auroraseven77",
   "auroraseven77-test",
@@ -17,7 +20,7 @@ const ALLOWED_PROJECTS = Object.freeze([
   "auroraseven77-b13-repro",
   "auroraseven77-b13-energy"
 ]);
-const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY", "MCP_LIST_PROJECTS"]);
+const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY", "MCP_LIST_PROJECTS", "MCP_READ_EVIDENCE_METADATA"]);
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -105,6 +108,69 @@ async function discoverMcpTools() {
     await client.close().catch(() => {});
   }
 }
+async function readEvidenceMetadata() {
+  const { client, transport } = createMcpClient();
+  try {
+    await client.connect(transport);
+    const discovery = await client.listTools();
+    const tool = (discovery.tools || []).find(item => item?.name === READ_TOOL);
+    if (!tool) return { status: "MCP_TOOL_UNAVAILABLE", tool_name: READ_TOOL };
+
+    const schema = tool.inputSchema;
+    const properties = schema?.properties;
+    if (!schema || schema.type !== "object" || !properties ||
+        Array.isArray(properties) ||
+        Object.keys(properties).sort().join(",") !== "project,relative_path" ||
+        properties.project?.type !== "string" ||
+        !Array.isArray(properties.project.enum) ||
+        !properties.project.enum.includes(READ_PROJECT) ||
+        properties.relative_path?.type !== "string" ||
+        properties.relative_path.maxLength !== 1024 ||
+        !Array.isArray(schema.required) ||
+        schema.required.slice().sort().join(",") !== "project,relative_path" ||
+        schema.additionalProperties !== false) {
+      return { status: "MCP_TOOL_SCHEMA_REJECTED", tool_name: READ_TOOL };
+    }
+
+    const response = await client.callTool({
+      name: READ_TOOL,
+      arguments: { project: READ_PROJECT, relative_path: READ_PATH }
+    });
+    if (response?.isError === true) {
+      return { status: "MCP_TOOL_CALL_FAILED", tool_name: READ_TOOL };
+    }
+    const block = (response?.content || []).find(item => item?.type === "text" && typeof item.text === "string");
+    if (!block) return { status: "MCP_TOOL_RESPONSE_INVALID" };
+
+    let record;
+    try { record = JSON.parse(block.text); }
+    catch { return { status: "MCP_TOOL_RESPONSE_INVALID" }; }
+    if (!record || typeof record !== "object" || Array.isArray(record) ||
+        Object.keys(record).sort().join(",") !== "bytes,content,path,project,sha256" ||
+        record.project !== READ_PROJECT || record.path !== READ_PATH ||
+        !Number.isSafeInteger(record.bytes) || record.bytes < 0 || record.bytes > 48 * 1024 ||
+        typeof record.content !== "string" ||
+        !/^[a-f0-9]{64}$/.test(record.sha256)) {
+      return { status: "MCP_EVIDENCE_RESPONSE_REJECTED" };
+    }
+    const bytes = Buffer.from(record.content, "utf8");
+    const actualHash = createHash("sha256").update(bytes).digest("hex");
+    if (bytes.length !== record.bytes || actualHash !== record.sha256) {
+      return { status: "MCP_EVIDENCE_INTEGRITY_FAILED" };
+    }
+    return {
+      status: "MCP_READ_EVIDENCE_METADATA_OK",
+      project: READ_PROJECT,
+      path: READ_PATH,
+      bytes: record.bytes,
+      sha256: record.sha256,
+      content_returned: false
+    };
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
 async function listMcpProjects() {
   const { client, transport } = createMcpClient();
   try {
@@ -214,7 +280,7 @@ async function main() {
           ? error.message : "MCP_CONNECTION_FAILED";
         result = { status: "MCP_DISCOVERY_FAILED", error_code: code };
       }
-    } else {
+    } else if (message.action === "MCP_LIST_PROJECTS") {
       try {
         result = await listMcpProjects();
       } catch (error) {
@@ -222,6 +288,15 @@ async function main() {
           /^[A-Z0-9_:-]{1,80}$/.test(error.message)
           ? error.message : "MCP_LIST_PROJECTS_FAILED";
         result = { status: "MCP_LIST_PROJECTS_FAILED", error_code: code };
+      }
+    } else {
+      try {
+        result = await readEvidenceMetadata();
+      } catch (error) {
+        const code = typeof error?.message === "string" &&
+          /^[A-Z0-9_:-]{1,80}$/.test(error.message)
+          ? error.message : "MCP_READ_EVIDENCE_FAILED";
+        result = { status: "MCP_READ_EVIDENCE_FAILED", error_code: code };
       }
     }
 
