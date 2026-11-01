@@ -94,8 +94,10 @@ async function main() {
   const currentBranch = git(repo, ["branch", "--show-current"]);
   if (currentBranch !== BRANCH) throw new Error(`WRONG_BRANCH: expected ${BRANCH}, got ${currentBranch || "(detached)"}`);
 
-  if (git(repo, ["status", "--porcelain"])) {
-    throw new Error("DIRTY_WORKTREE: use a dedicated clean clone; no changes were made");
+  const dirtyLines = git(repo, ["status", "--porcelain"]).split("\n").filter(Boolean);
+  const unexpectedChanges = dirtyLines.filter(line => !line.startsWith("?? agents/aurora-relay/outbox/"));
+  if (unexpectedChanges.length) {
+    throw new Error("DIRTY_WORKTREE: only untracked relay outbox results are allowed; no changes were made");
   }
 
   git(repo, ["fetch", "--quiet", "origin", BRANCH]);
@@ -143,14 +145,14 @@ async function main() {
     processed += 1;
   }
 
-  if (processed === 0) {
-    console.log("NO_PENDING_REQUESTS");
-    return;
-  }
-
+  const outboxFiles = readdirSync(outbox).filter(name => name.endsWith(".json"));
   if (!hasFlag("--approve-publish")) {
-    console.log(`LOCAL_RESULTS_READY=${processed}`);
-    console.log("PUBLISH_NOT_APPROVED: rerun with --approve-publish after reviewing outbox/");
+    if (outboxFiles.length > 0) {
+      console.log(`LOCAL_RESULTS_READY=${outboxFiles.length}`);
+      console.log("PUBLISH_NOT_APPROVED: inspect outbox/ then rerun with --approve-publish");
+    } else {
+      console.log("NO_PENDING_REQUESTS");
+    }
     return;
   }
 
@@ -158,11 +160,11 @@ async function main() {
   const staged = git(repo, ["diff", "--cached", "--name-only"]);
   if (staged) {
     git(repo, ["-c", "user.name=Aurora Relay Agent", "-c", "user.email=aurora-relay@users.noreply.github.com",
-      "commit", "-m", `aurora-relay: publish ${processed} result(s)`]);
+      "commit", "-m", `aurora-relay: publish ${outboxFiles.length} result(s)`]);
     git(repo, ["push", "origin", BRANCH]);
-    console.log(`PUBLISHED=${processed}`);
+    console.log(`PUBLISHED=${outboxFiles.length}`);
   } else {
-    console.log("NO_NEW_RESULTS_TO_PUBLISH");
+    console.log(processed > 0 ? "NO_NEW_RESULTS_TO_PUBLISH" : "NO_LOCAL_RESULTS_TO_PUBLISH");
   }
 }
 
