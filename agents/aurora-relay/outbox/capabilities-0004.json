@@ -1,0 +1,87 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "capabilities-0004",
+  "action": "CAPABILITIES",
+  "agent_version": "0.4.0",
+  "created_at": "2026-11-01T03:17:16.118Z",
+  "result": {
+    "status": "CAPABILITIES_OK",
+    "relay_version": "0.4.0",
+    "generated_at": "2026-11-01T03:17:16.100Z",
+    "actions": [
+      {
+        "name": "PING",
+        "safe": true,
+        "approval": false,
+        "implemented": true
+      },
+      {
+        "name": "MCP_DISCOVERY",
+        "safe": true,
+        "approval": false,
+        "implemented": true
+      },
+      {
+        "name": "MCP_LIST_PROJECTS",
+        "safe": true,
+        "approval": false,
+        "implemented": true
+      },
+      {
+        "name": "MCP_READ_EVIDENCE_METADATA",
+        "safe": true,
+        "approval": false,
+        "implemented": true
+      },
+      {
+        "name": "CAPABILITIES",
+        "safe": true,
+        "approval": false,
+        "implemented": true
+      }
+    ],
+    "deferred_actions": [
+      {
+        "name": "FS_READ",
+        "implemented": false
+      },
+      {
+        "name": "FS_WRITE",
+        "implemented": false,
+        "approval": true
+      },
+      {
+        "name": "FS_DELETE",
+        "implemented": false,
+        "approval": true
+      },
+      {
+        "name": "TASK_CREATE",
+        "implemented": false,
+        "approval": true
+      },
+      {
+        "name": "TASK_UPDATE",
+        "implemented": false,
+        "approval": true
+      },
+      {
+        "name": "TASK_EXECUTE",
+        "implemented": false,
+        "approval": true
+      }
+    ],
+    "workspace": null,
+    "projects_authorized": [
+      "auroraseven77",
+      "auroraseven77-test",
+      "auroraseven77-v21-validation",
+      "auroraseven77-b12-audit",
+      "auroraseven77-b13-repro",
+      "auroraseven77-b13-energy"
+    ],
+    "execution_policy": "READ_ONLY",
+    "approval_policy": "NO_MUTATING_ACTIONS_ENABLED"
+  },
+  "sha256": "72f5f911881923911b34fbb4506c00747dbb5cba259f20f2e55229e7fbea5771"
+}
