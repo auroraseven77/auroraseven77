@@ -307,7 +307,9 @@ async function main() {
           ? error.message : "MCP_CONNECTION_FAILED";
         result = { status: "MCP_DISCOVERY_FAILED", error_code: code };
       }
-    } else if (message.action === "CAPABILITIES") {\n      result = getCapabilities();\n    } else if (message.action === "MCP_LIST_PROJECTS") 
+    } else if (message.action === "CAPABILITIES") {
+      result = getCapabilities();
+    } else if (message.action === "MCP_LIST_PROJECTS") 
       try {
         result = await listMcpProjects();
       } catch (error) {
