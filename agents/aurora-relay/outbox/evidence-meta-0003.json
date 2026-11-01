@@ -1,0 +1,16 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "evidence-meta-0003",
+  "action": "MCP_READ_EVIDENCE_METADATA",
+  "agent_version": "0.3.0",
+  "created_at": "2026-11-01T02:34:48.344Z",
+  "result": {
+    "status": "MCP_READ_EVIDENCE_METADATA_OK",
+    "project": "auroraseven77",
+    "path": "README.md",
+    "bytes": 7215,
+    "sha256": "1d7b6dcdc8316497ee30d470dc384df0ec77d651ae905afd5f7934092d590b4f",
+    "content_returned": false
+  },
+  "sha256": "fcad5b335461a34f20b6af818e3abbfa93d6caa2ffb655ba27b396c3484e32fc"
+}
