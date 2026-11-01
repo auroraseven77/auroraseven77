@@ -1,0 +1,5 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "capabilities-0004",
+  "action": "CAPABILITIES"
+}
