@@ -5,10 +5,19 @@ import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const BRANCH = "agent/aurora-relay";
 const RELAY_PATH = "agents/aurora-relay";
-const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY"]);
+const PROJECT_TOOL = "aurora.list_projects";
+const ALLOWED_PROJECTS = Object.freeze([
+  "auroraseven77",
+  "auroraseven77-test",
+  "auroraseven77-v21-validation",
+  "auroraseven77-b12-audit",
+  "auroraseven77-b13-repro",
+  "auroraseven77-b13-energy"
+]);
+const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY", "MCP_LIST_PROJECTS"]);
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -55,7 +64,7 @@ function readMcpCommand() {
   }
   return parsed;
 }
-async function discoverMcpTools() {
+function createMcpClient() {
   const command = readMcpCommand();
   const env = {};
   for (const key of ["PATH", "HOME", "PREFIX", "TMPDIR", "LANG", "LC_ALL", "ANDROID_ROOT", "ANDROID_DATA"]) {
@@ -70,14 +79,79 @@ async function discoverMcpTools() {
     { name: "aurora-relay-agent", version: VERSION },
     { capabilities: {} }
   );
+  return { client, transport };
+}
+async function withMcpClient(operation) {
+  const { client } = createMcpClient();
+  try {
+    await client.connect(client.transport ?? undefined);
+    return await operation(client);
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+async function discoverMcpTools() {
+  const { client, transport } = createMcpClient();
   try {
     await client.connect(transport);
     const response = await client.listTools();
-    const names = (response.tools || []).map(tool => tool.name).filter(Boolean).sort();
+    const names = (response.tools || []).map(tool => tool?.name).filter(Boolean).sort();
     return {
       status: "MCP_DISCOVERY_OK",
       tool_count: names.length,
       tool_names: names
+    };
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+async function listMcpProjects() {
+  const { client, transport } = createMcpClient();
+  try {
+    await client.connect(transport);
+    const discovery = await client.listTools();
+    const tool = (discovery.tools || []).find(item => item?.name === PROJECT_TOOL);
+    if (!tool) return { status: "MCP_TOOL_UNAVAILABLE", tool_name: PROJECT_TOOL };
+
+    const schema = tool.inputSchema;
+    if (!schema || schema.type !== "object" || !schema.properties ||
+        Array.isArray(schema.properties) || Object.keys(schema.properties).length !== 0 ||
+        schema.additionalProperties !== false) {
+      return { status: "MCP_TOOL_SCHEMA_REJECTED", tool_name: PROJECT_TOOL };
+    }
+
+    const response = await client.callTool({ name: PROJECT_TOOL, arguments: {} });
+    if (response?.isError === true) {
+      return { status: "MCP_TOOL_CALL_FAILED", tool_name: PROJECT_TOOL };
+    }
+    const block = (response?.content || []).find(item => item?.type === "text" && typeof item.text === "string");
+    if (!block) return { status: "MCP_TOOL_RESPONSE_INVALID" };
+
+    let rows;
+    try { rows = JSON.parse(block.text); }
+    catch { return { status: "MCP_TOOL_RESPONSE_INVALID" }; }
+    if (!Array.isArray(rows) || rows.length !== ALLOWED_PROJECTS.length) {
+      return { status: "MCP_PROJECT_LIST_REJECTED" };
+    }
+
+    const observed = new Map();
+    for (const row of rows) {
+      if (!row || typeof row !== "object" || Array.isArray(row) ||
+          Object.keys(row).sort().join(",") !== "exists,name" ||
+          typeof row.name !== "string" || typeof row.exists !== "boolean" ||
+          !ALLOWED_PROJECTS.includes(row.name) || observed.has(row.name)) {
+        return { status: "MCP_PROJECT_LIST_REJECTED" };
+      }
+      observed.set(row.name, row.exists);
+    }
+    if (observed.size !== ALLOWED_PROJECTS.length) {
+      return { status: "MCP_PROJECT_LIST_REJECTED" };
+    }
+
+    return {
+      status: "MCP_LIST_PROJECTS_OK",
+      project_count: ALLOWED_PROJECTS.length,
+      projects: ALLOWED_PROJECTS.map(name => ({ name, exists: observed.get(name) }))
     };
   } finally {
     await client.close().catch(() => {});
@@ -131,7 +205,7 @@ async function main() {
       result = { status: "REJECTED_UNSUPPORTED_ACTION" };
     } else if (message.action === "PING") {
       result = { status: "PONG", transport: "git-mailbox" };
-    } else {
+    } else if (message.action === "MCP_DISCOVERY") {
       try {
         result = await discoverMcpTools();
       } catch (error) {
@@ -139,6 +213,15 @@ async function main() {
           /^[A-Z0-9_:-]{1,80}$/.test(error.message)
           ? error.message : "MCP_CONNECTION_FAILED";
         result = { status: "MCP_DISCOVERY_FAILED", error_code: code };
+      }
+    } else {
+      try {
+        result = await listMcpProjects();
+      } catch (error) {
+        const code = typeof error?.message === "string" &&
+          /^[A-Z0-9_:-]{1,80}$/.test(error.message)
+          ? error.message : "MCP_LIST_PROJECTS_FAILED";
+        result = { status: "MCP_LIST_PROJECTS_FAILED", error_code: code };
       }
     }
 
