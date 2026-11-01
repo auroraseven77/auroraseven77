@@ -40,7 +40,7 @@ git clone --single-branch --branch agent/aurora-relay \
   "$HOME/aurora-relay"
 
 cd "$HOME/aurora-relay/agents/aurora-relay"
-npm install --no-audit --no-fund
+npm install --no-audit --no-fund --no-package-lock
 ```
 
 Configure o comando do servidor local como JSON array. Exemplo baseado no caminho do servidor Aurora v1.0.1:
