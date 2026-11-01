@@ -1,7 +1,7 @@
 # Aurora Evidence Ledger 01 — estado do artefato TELOS
 
 **Data de referência:** 2026-10-26  
-**Estado:** pacote construído e testado no sandbox; integração TUU/SQLite/WAL e Termux ainda não executadas.
+**Estado:** pacote testado no sandbox; teste isolado do pacote em Termux reportado pelo operador; setup persistente e integração TUU/SQLite/WAL ainda não verificados.
 
 ## Artefatos locais entregues no chat
 
@@ -22,10 +22,21 @@ Os ZIPs estão anexados ao turno ChatGPT para download; este documento **não af
 - Manifesto SHA-256 do pacote verificado localmente.
 - Nenhuma alteração no `~/tuu/data/tuu.db`; nenhuma execução no Termux ou Snowflake.
 
+## Validação isolada em Termux reportada pelo operador (2026-10-26)
+
+- Arquivo de handoff: `aurora_telos_20261026.zip`.
+- SHA-256 reportado e conferido no transcript: `d7dfd98da8ad9c7c6f3b27b29ec5347ff90cebee05de1f36d64c850246110d8d`.
+- CRC e caminhos do ZIP: aprovados segundo a saída fornecida.
+- Testes do pacote isolado: 16/16 aprovados após definir `PYTHONPATH`; `TEST_RC=0`; duração reportada de 0,342 s.
+- Verificação do ledger de exemplo: `valid: true`, `event_count: 1`, `VERIFY_RC=0`; head hash `7ea3a0af07b091e1548823117dbde5351c2ebe95d14b955f85475afdb6b5851b`.
+- A primeira tentativa de descoberta dos testes falhou com `ModuleNotFoundError: No module named 'evidence_ledger'`; conservar a falha no histórico, seguida da execução corrigida.
+- Fonte/limite: transcript fornecido pelo operador, não recolhido de forma independente no aparelho. Versão Python e timestamps exatos dessa execução não foram apresentados.
+- Escopo negativo: não demonstra setup persistente, integração SQLite/WAL, acesso ao banco TUU, endpoint MCP ativo ou execução CERBERUS/KRONOS.
+
 ## Limites
 
-O SHA-256 demonstra identidade de bytes em relação ao digest informado; por si só não comprova autoria, veracidade nem origem. Os 16 testes são observados neste sandbox, não no Android do usuário. A integração com SQLite/WAL exige uma fase própria, em cópia isolada, com política de backup, migração, orçamento de escritas e validação na versão Python do Termux.
+O SHA-256 demonstra identidade de bytes em relação ao digest informado; por si só não comprova autoria, veracidade nem origem. Os 16 testes registrados no sandbox são resultados dessa execução Linux; os 16 testes citados na seção Termux vêm de transcript reportado pelo operador. Nenhum dos registros comprova a integração com SQLite/WAL, que exige fase própria, cópia isolada, política de backup, migração, orçamento de escritas e validação na versão Python instalada no Termux.
 
 ## Próximo passo
 
-Revisão humana do pacote e do PR draft. Depois, handoff para validação no Termux; não executar a integração diretamente nesta sessão.
+Atualização documental H1 registrada nesta branch para revisão. O próximo passo operacional é executar inventário read-only de branches/HEAD locais no Termux. Qualquer integração SQLite/WAL deve começar numa cópia isolada, com plano de backup/recuperação e aprovação humana explícita.

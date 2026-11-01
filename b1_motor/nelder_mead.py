@@ -1,9 +1,45 @@
 import math
+from numbers import Integral, Real
 
 class MaxEvaluationsReached(Exception):
     pass
 
 def minimize(objective_function, x0, initial_step=0.05, max_evals=128, tol=1e-6):
+    """Minimize a real-valued objective under a strict evaluation budget.
+
+    Invalid configuration is rejected before the objective is called. The
+    optimizer never silently repairs a malformed starting point or budget.
+    """
+    if not callable(objective_function):
+        raise TypeError("objective_function must be callable")
+
+    if isinstance(max_evals, bool) or not isinstance(max_evals, Integral):
+        raise TypeError("max_evals must be a positive integer")
+    if max_evals < 1:
+        raise ValueError("max_evals must be >= 1")
+
+    if isinstance(initial_step, bool) or not isinstance(initial_step, Real):
+        raise TypeError("initial_step must be a real number")
+    if not math.isfinite(float(initial_step)) or initial_step <= 0:
+        raise ValueError("initial_step must be finite and > 0")
+
+    if isinstance(tol, bool) or not isinstance(tol, Real):
+        raise TypeError("tol must be a real number")
+    if not math.isfinite(float(tol)) or tol < 0:
+        raise ValueError("tol must be finite and >= 0")
+
+    try:
+        x0 = [float(value) for value in x0]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise TypeError("x0 must be a one-dimensional sequence of real numbers") from exc
+    if not x0:
+        raise ValueError("x0 must contain at least one parameter")
+    if not all(math.isfinite(value) for value in x0):
+        raise ValueError("x0 must contain only finite values")
+
+    initial_step = float(initial_step)
+    max_evals = int(max_evals)
+    tol = float(tol)
     N = len(x0)
     alpha, gamma, rho, sigma = 1.0, 2.0, 0.5, 0.5
     evals = 0
