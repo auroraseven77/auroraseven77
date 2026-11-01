@@ -1,81 +1,67 @@
-# Aurora Relay Agent v0.1.0
+# Aurora Relay Agent v0.2.0
 
 Agente de retransmissão **one-shot**, controlado pelo usuário, para ligar pedidos publicados nesta branch a operações MCP locais, estritamente allowlisted.
 
-## O que ele faz
+## Fluxo
 
-1. O operador do ChatGPT publica um JSON em `inbox/` nesta branch.
+1. O operador do ChatGPT publica um JSON em **inbox/** nesta branch.
 2. O usuário executa o agente no Termux.
-3. O agente valida a mensagem e, quando solicitado, conecta ao servidor MCP local por STDIO usando o SDK oficial.
-4. O agente escreve uma resposta sanitizada em `outbox/`.
-5. Somente com a flag explícita `--approve-publish`, ele faz commit e push da resposta.
-6. O operador do ChatGPT pode então ler o resultado pelo conector GitHub autorizado.
+3. O agente valida o envelope e conecta ao MCP local por STDIO com o SDK oficial.
+4. O agente escreve em **outbox/** somente o resultado normalizado permitido pela ação.
+5. Somente com **--approve-publish**, ele faz commit e push da resposta.
+6. O operador pode recuperar a resposta pelo conector GitHub autorizado.
 
-## Limites deliberados
+## Ações permitidas
+
+- **PING**: teste do transporte GitHub-mailbox; não chama MCP.
+- **MCP_DISCOVERY**: executa somente **initialize** e **tools/list**.
+- **MCP_LIST_PROJECTS**: verifica se **aurora.list_projects** está anunciada com schema estrito de objeto vazio, chama essa ferramenta fixa com **arguments: {}** e valida os seis registros autorizados. A saída contém apenas **name** e **exists**; caminhos locais e conteúdo de arquivos não são publicados.
+
+O relay **não aceita nomes de ferramentas nem argumentos MCP da mensagem**. Nenhuma outra ferramenta MCP é chamada nesta versão.
+
+## Limites e privacidade
 
 - Não acessa nem expõe o sandbox privado que executa uma sessão ChatGPT.
 - Não concede acesso às CPUs ou ao runtime interno da OpenAI.
 - Não executa shell, scripts, URLs, comandos ou ferramentas arbitrárias recebidas pela fila.
-- A allowlist inicial contém somente `PING` e `MCP_DISCOVERY`.
-- `MCP_DISCOVERY` chama apenas `initialize` e `tools/list`; não lê evidências, arquivos ou repositórios.
+- Não chama **aurora.read_evidence** nesta versão.
 - Não há daemon, persistência automática, auto-replicação ou execução em background.
-- O conteúdo de `inbox/` e `outbox/` fica público neste repositório. Nunca publique tokens, segredos, dados privados ou conteúdo de evidências.
-- SHA-256 detecta alterações acidentais, mas **não é assinatura/autenticação**. A branch pública não deve ser usada como fila para comandos sensíveis.
-- O usuário mantém o controle do momento de execução e da publicação.
+- Este repositório é público: inbox e outbox também são públicos. **MCP_LIST_PROJECTS** publica os nomes allowlisted e o indicador de existência de cada projeto. Não use esta fila para dados privados, tokens, segredos ou conteúdo de evidências.
+- SHA-256 detecta alterações acidentais, mas **não é assinatura/autenticação**.
+- O usuário controla o momento da execução e autoriza separadamente a publicação com **--approve-publish**.
 
 ## Requisitos
 
 - Termux com Node.js 22+ e Git.
 - Acesso de leitura ao repositório e credenciais Git já configuradas no Android para fazer push.
-- Servidor Aurora MCP local já funcional por STDIO.
-- Dependência `@modelcontextprotocol/sdk@1.30.0` instalada nesta pasta.
+- Servidor Aurora MCP local funcional por STDIO.
+- Dependência **@modelcontextprotocol/sdk@1.30.0** instalada nesta pasta.
 
-## Instalação no Termux
+## Configuração
 
-Use um clone dedicado para não misturar o relay com outros trabalhos:
+    export AURORA_MCP_COMMAND='["node","/data/data/com.termux/files/home/aurora-labs/v101/aurora_gpt_sandbox/mcp-readonly-safe-v1.0.1.cjs"]'
 
-```bash
-git clone --single-branch --branch agent/aurora-relay \
-  https://github.com/auroraseven77/auroraseven77.git \
-  "$HOME/aurora-relay"
-
-cd "$HOME/aurora-relay/agents/aurora-relay"
-npm install --no-audit --no-fund --no-package-lock
-```
-
-Configure o comando do servidor local como JSON array. Exemplo baseado no caminho do servidor Aurora v1.0.1:
-
-```bash
-export AURORA_MCP_COMMAND='["node","/data/data/com.termux/files/home/aurora-labs/v101/aurora_gpt_sandbox/mcp-readonly-safe-v1.0.1.cjs"]'
-```
-
-Ajuste o caminho somente se o arquivo estiver em outro local. Não inclua tokens ou credenciais nessa variável.
+Ajuste o caminho apenas se necessário. Não inclua tokens ou credenciais nessa variável.
 
 ## Executar uma rodada
 
-Primeiro, veja o que seria processado sem publicar:
+Primeiro, gere o resultado local sem publicar:
 
-```bash
-node relay.mjs --repo "$HOME/aurora-relay"
-```
+    node relay.mjs --repo "$HOME/aurora-relay"
 
-Para autorizar a publicação da resposta no GitHub:
+Inspecione o JSON criado em **outbox/**. A publicação exige uma segunda execução com aprovação explícita:
 
-```bash
-node relay.mjs --repo "$HOME/aurora-relay" --approve-publish
-```
+    node relay.mjs --repo "$HOME/aurora-relay" --approve-publish
 
-A flag aprova apenas o commit/push dos arquivos de resposta gerados pelo agente. Ela não habilita comandos arbitrários nem operações de escrita no MCP.
+A flag autoriza somente o commit/push dos resultados presentes em outbox/; não amplia a allowlist nem habilita operações de escrita no MCP.
 
-## Formato de mensagem
+## Formato e estados
 
-Veja `message.schema.json`. A mensagem inicial de teste fica em `inbox/0001-mcp-discovery.json`.
+Veja **message.schema.json** e os exemplos em **inbox/**.
 
-## Estados observáveis
-
-- `NO_PENDING_REQUESTS`: não há mensagens novas.
-- `LOCAL_RESULTS_READY`: resultado criado localmente, ainda não publicado.
-- `PUBLISHED`: commit e push foram concluídos.
-- `REJECTED_UNSUPPORTED_ACTION`: ação fora da allowlist.
+- **NO_PENDING_REQUESTS**: nenhuma mensagem nova foi processada.
+- **LOCAL_RESULTS_READY**: resultado local criado; ainda não publicado.
+- **PUBLISHED**: commit e push concluídos.
+- **REJECTED_UNSUPPORTED_ACTION**: ação fora da allowlist.
 
 Nenhuma execução é declarada concluída sem saída observada do agente.
