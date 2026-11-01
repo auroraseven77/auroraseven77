@@ -102,7 +102,7 @@ test('A.3 rejects more than 100 pending JSON requests', t => {
   const root = tempDir(t);
   const inbox = join(root, 'inbox');
   mkdirSync(inbox);
-  for (let i = 0; i < 101; i += 1) writeFileSync(join(inbox, \`\${i}.json\`), '{}');
+  for (let i = 0; i < 101; i += 1) writeFileSync(join(inbox, `${i}.json`), '{}');
   assert.throws(() => assertInboxLimit(inbox, 100), /too many pending requests/);
 });
 

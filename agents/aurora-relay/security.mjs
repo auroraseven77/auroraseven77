@@ -49,9 +49,9 @@ export function ensureSafeDirectory(directory) {
       }
       st = lstatOrNull(current);
     }
-    if (!st) throw new Error(\`directory unavailable: \${current}\`);
-    if (st.isSymbolicLink()) throw new Error(\`symlink rejected: \${current}\`);
-    if (!st.isDirectory()) throw new Error(\`not a directory: \${current}\`);
+    if (!st) throw new Error(`directory unavailable: ${current}`);
+    if (st.isSymbolicLink()) throw new Error(`symlink rejected: ${current}`);
+    if (!st.isDirectory()) throw new Error(`not a directory: ${current}`);
   }
   return absolute;
 }
@@ -61,8 +61,8 @@ export function assertNoSymlink(path) {
   const parent = dirname(absolute);
   ensureSafeDirectory(parent);
   const st = lstatOrNull(absolute);
-  if (st?.isSymbolicLink()) throw new Error(\`symlink rejected: \${absolute}\`);
-  if (st && !st.isFile()) throw new Error(\`not a regular file: \${absolute}\`);
+  if (st?.isSymbolicLink()) throw new Error(`symlink rejected: ${absolute}`);
+  if (st && !st.isFile()) throw new Error(`not a regular file: ${absolute}`);
   return st;
 }
 
@@ -73,9 +73,9 @@ export function safeWriteAtomic(target, payload) {
 
   const temporary = join(
     directory,
-    \`.\${basename(absolute)}.\${process.pid}.\${randomBytes(12).toString('hex')}.tmp\`
+    `.${basename(absolute)}.${process.pid}.${randomBytes(12).toString('hex')}.tmp`
   );
-  const bytes = Buffer.from(\`\${JSON.stringify(payload, null, 2)}\n\`, 'utf8');
+  const bytes = Buffer.from(`${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   let fd;
   let created = false;
 
@@ -164,7 +164,7 @@ export function readRequest(path, options = {}) {
 export function assertInboxLimit(inbox, maxEntries = 100) {
   ensureSafeDirectory(inbox);
   const entries = readdirSync(inbox).filter(name => name.endsWith('.json'));
-  if (entries.length > maxEntries) throw new Error(\`inbox: too many pending requests (\${entries.length} > \${maxEntries})\`);
+  if (entries.length > maxEntries) throw new Error(`inbox: too many pending requests (${entries.length} > ${maxEntries})`);
   return entries.sort();
 }
 
@@ -182,7 +182,7 @@ function resolveExecutable(name, pathValue = process.env.PATH || '') {
       }
     } catch {}
   }
-  throw new Error(\`mcp: executable not found: \${name}\`);
+  throw new Error(`mcp: executable not found: ${name}`);
 }
 
 export async function validateMcpCommand(command, env = process.env, execPath = process.execPath) {
@@ -233,7 +233,7 @@ export async function withTimeout(promise, milliseconds, label, onTimeout = () =
       new Promise((_, reject) => {
         timer = setTimeout(() => {
           try { Promise.resolve(onTimeout()).catch(() => {}); } catch {}
-          reject(new Error(\`MCP_TIMEOUT:\${label}\`));
+          reject(new Error(`MCP_TIMEOUT:${label}`));
         }, milliseconds);
       })
     ]);

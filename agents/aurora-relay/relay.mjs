@@ -58,7 +58,7 @@ function git(repo, args) {
   });
   if (result.error || result.status !== 0) {
     const detail = (result.stderr || result.error?.message || 'git command failed').trim().slice(0, 400);
-    throw new Error(\`GIT_FAILURE: \${detail}\`);
+    throw new Error(`GIT_FAILURE: ${detail}`);
   }
   return (result.stdout || '').trim();
 }
@@ -95,7 +95,7 @@ export function writeResult(outbox, id, action, result, requestSha256) {
     ...body,
     sha256: createHash('sha256').update(canonical).digest('hex')
   };
-  safeWriteAtomic(join(outbox, \`\${id}.json\`), payload);
+  safeWriteAtomic(join(outbox, `${id}.json`), payload);
 }
 
 async function readMcpCommand() {
@@ -313,8 +313,8 @@ function getCapabilities() {
 }
 
 function readPublishResult(outbox, inbox, id) {
-  const resultPath = join(outbox, \`\${id}.json\`);
-  const requestPath = join(inbox, \`\${id}.json\`);
+  const resultPath = join(outbox, `${id}.json`);
+  const requestPath = join(inbox, `${id}.json`);
   assertNoSymlink(resultPath);
   assertNoSymlink(requestPath);
   const resultFile = readRequest(resultPath);
@@ -348,16 +348,16 @@ export async function main() {
   const root = git(repo, ['rev-parse', '--show-toplevel']);
   if (resolve(root) !== repo) throw new Error('REPO_PATH_MISMATCH');
   const currentBranch = git(repo, ['branch', '--show-current']);
-  if (currentBranch !== BRANCH) throw new Error(\`WRONG_BRANCH: expected \${BRANCH}, got \${currentBranch || '(detached)'}\`);
+  if (currentBranch !== BRANCH) throw new Error(`WRONG_BRANCH: expected ${BRANCH}, got ${currentBranch || '(detached)'}`);
 
   const dirtyLines = git(repo, ['status', '--porcelain']).split('\n').filter(Boolean);
-  const unexpectedChanges = dirtyLines.filter(line => !line.startsWith(\`?? \${RELAY_PATH}/outbox/\`));
+  const unexpectedChanges = dirtyLines.filter(line => !line.startsWith(`?? ${RELAY_PATH}/outbox/`));
   if (unexpectedChanges.length) {
     throw new Error('DIRTY_WORKTREE: only untracked relay outbox results are allowed; no changes were made');
   }
 
   git(repo, ['fetch', '--quiet', 'origin', BRANCH]);
-  git(repo, ['merge', '--ff-only', \`origin/\${BRANCH}\`]);
+  git(repo, ['merge', '--ff-only', `origin/${BRANCH}`]);
 
   const inbox = ensureSafeDirectory(join(repo, RELAY_PATH, 'inbox'));
   const outbox = ensureSafeDirectory(join(repo, RELAY_PATH, 'outbox'));
@@ -370,17 +370,17 @@ export async function main() {
     try {
       request = readRequest(path);
     } catch (error) {
-      console.error(\`INBOX_REJECTED=\${file}:\${String(error?.message || 'invalid request').slice(0, 180)}\`);
+      console.error(`INBOX_REJECTED=${file}:${String(error?.message || 'invalid request').slice(0, 180)}`);
       continue;
     }
     const message = request.message;
     const id = message?.id;
-    if (!validEnvelope(message) || file !== \`\${id}.json\`) {
-      console.error(\`SKIP_INVALID_ENVELOPE=\${file}\`);
+    if (!validEnvelope(message) || file !== `${id}.json`) {
+      console.error(`SKIP_INVALID_ENVELOPE=${file}`);
       continue;
     }
 
-    const resultPath = join(outbox, \`\${id}.json\`);
+    const resultPath = join(outbox, `${id}.json`);
     const existing = assertNoSymlink(resultPath);
     if (existing) continue;
 
@@ -424,7 +424,7 @@ export async function main() {
   const outboxFiles = readdirSync(outbox).filter(name => name.endsWith('.json'));
   if (!approveId) {
     if (outboxFiles.length > 0) {
-      console.log(\`LOCAL_RESULTS_READY=\${outboxFiles.length}\`);
+      console.log(`LOCAL_RESULTS_READY=${outboxFiles.length}`);
       console.log('PUBLISH_NOT_APPROVED: inspect the specific result, then use --approve-publish <req_id>');
     } else {
       console.log('NO_PENDING_REQUESTS');
@@ -433,26 +433,26 @@ export async function main() {
   }
 
   const publishPath = readPublishResult(outbox, inbox, approveId);
-  git(repo, ['add', '--', \`\${RELAY_PATH}/outbox/\${approveId}.json\`]);
+  git(repo, ['add', '--', `${RELAY_PATH}/outbox/${approveId}.json`]);
   const staged = git(repo, ['diff', '--cached', '--name-only']);
-  const expectedPath = \`\${RELAY_PATH}/outbox/\${approveId}.json\`;
+  const expectedPath = `${RELAY_PATH}/outbox/${approveId}.json`;
   if (staged !== expectedPath) throw new Error('publish: staged path mismatch');
   git(repo, [
     '-c', 'user.name=Aurora Relay Agent',
     '-c', 'user.email=aurora-relay@users.noreply.github.com',
-    'commit', '-m', \`aurora-relay: publish result \${approveId}\`
+    'commit', '-m', `aurora-relay: publish result ${approveId}`
   ]);
   git(repo, ['push', 'origin', BRANCH]);
-  console.log(\`PUBLISHED_ID=\${approveId}\`);
-  console.log(\`PUBLISHED_PATH=\${publishPath}\`);
-  console.log(\`OTHER_LOCAL_RESULTS_NOT_PUBLISHED=\${Math.max(0, outboxFiles.length - 1)}\`);
-  console.log(\`PROCESSED_THIS_RUN=\${processed}\`);
+  console.log(`PUBLISHED_ID=${approveId}`);
+  console.log(`PUBLISHED_PATH=${publishPath}`);
+  console.log(`OTHER_LOCAL_RESULTS_NOT_PUBLISHED=${Math.max(0, outboxFiles.length - 1)}`);
+  console.log(`PROCESSED_THIS_RUN=${processed}`);
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : null;
 if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   main().catch(error => {
-    console.error(\`AURORA_RELAY_ERROR=\${String(error?.message || 'UNKNOWN').slice(0, 500)}\`);
+    console.error(`AURORA_RELAY_ERROR=${String(error?.message || 'UNKNOWN').slice(0, 500)}`);
     process.exitCode = 1;
   });
 }
