@@ -1,0 +1,16 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "probe-0001-mcp-discovery",
+  "action": "MCP_DISCOVERY",
+  "agent_version": "0.1.0",
+  "created_at": "2026-11-01T02:20:00.749Z",
+  "result": {
+    "status": "MCP_DISCOVERY_OK",
+    "tool_count": 2,
+    "tool_names": [
+      "aurora.list_projects",
+      "aurora.read_evidence"
+    ]
+  },
+  "sha256": "a36169b4794c2d4b596cf102f99654f197326e7beebd44d505100f727d2a2215"
+}
