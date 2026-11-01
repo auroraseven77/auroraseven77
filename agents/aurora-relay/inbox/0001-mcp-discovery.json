@@ -1,5 +1,0 @@
-{
-  "protocol": "aurora-relay/1",
-  "id": "probe-0001-mcp-discovery",
-  "action": "MCP_DISCOVERY"
-}
