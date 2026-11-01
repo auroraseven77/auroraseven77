@@ -1,9 +1,9 @@
 {
   "name": "@aurora/relay-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "One-shot, read-only MCP relay for an explicitly authorized Aurora Termux workspace.",
+  "description": "One-shot, allowlisted, read-only MCP relay for an explicitly authorized Aurora Termux workspace.",
   "engines": {
     "node": ">=22"
   },
