@@ -37,6 +37,15 @@ function git(repo, args) {
 function safeId(value) {
   return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value);
 }
+function validEnvelope(message) {
+  if (!message || typeof message !== "object" || Array.isArray(message)) return false;
+  const allowedKeys = new Set(["protocol", "id", "action", "created_at"]);
+  if (Object.keys(message).some(key => !allowedKeys.has(key))) return false;
+  if (message.protocol !== "aurora-relay/1" || !safeId(message.id) || typeof message.action !== "string") return false;
+  if (message.created_at !== undefined &&
+      (typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)))) return false;
+  return true;
+}
 function writeResult(outbox, id, action, result) {
   const body = {
     protocol: "aurora-relay/1",
@@ -80,15 +89,6 @@ function createMcpClient() {
     { capabilities: {} }
   );
   return { client, transport };
-}
-async function withMcpClient(operation) {
-  const { client } = createMcpClient();
-  try {
-    await client.connect(client.transport ?? undefined);
-    return await operation(client);
-  } finally {
-    await client.close().catch(() => {});
-  }
 }
 async function discoverMcpTools() {
   const { client, transport } = createMcpClient();
@@ -193,7 +193,7 @@ async function main() {
     catch { console.error(`SKIP_INVALID_JSON=${file}`); continue; }
 
     const id = message?.id;
-    if (!safeId(id) || file !== `${id}.json` || message?.protocol !== "aurora-relay/1") {
+    if (!validEnvelope(message) || file !== `${id}.json`) {
       console.error(`SKIP_INVALID_ENVELOPE=${file}`);
       continue;
     }
