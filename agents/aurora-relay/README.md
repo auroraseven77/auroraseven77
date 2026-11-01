@@ -1,4 +1,4 @@
-# Aurora Relay Agent v0.2.0
+# Aurora Relay Agent v0.3.0
 
 Agente de retransmissão **one-shot**, controlado pelo usuário, para ligar pedidos publicados nesta branch a operações MCP locais, estritamente allowlisted.
 
@@ -16,6 +16,7 @@ Agente de retransmissão **one-shot**, controlado pelo usuário, para ligar pedi
 - **PING**: teste do transporte GitHub-mailbox; não chama MCP.
 - **MCP_DISCOVERY**: executa somente **initialize** e **tools/list**.
 - **MCP_LIST_PROJECTS**: verifica se **aurora.list_projects** está anunciada com schema estrito de objeto vazio, chama essa ferramenta fixa com **arguments: {}** e valida os seis registros autorizados. A saída contém apenas **name** e **exists**; caminhos locais e conteúdo de arquivos não são publicados.
+- **MCP_READ_EVIDENCE_METADATA**: chama exclusivamente **aurora.read_evidence** para **auroraseven77/README.md**, valida projeto, caminho, tamanho e SHA-256 calculado sobre os bytes UTF-8, e descarta o conteúdo. O outbox publica somente projeto, caminho, tamanho, hash e **content_returned: false**. Limite máximo de 48 KiB.
 
 O relay **não aceita nomes de ferramentas nem argumentos MCP da mensagem**. Nenhuma outra ferramenta MCP é chamada nesta versão.
 
@@ -24,7 +25,7 @@ O relay **não aceita nomes de ferramentas nem argumentos MCP da mensagem**. Nen
 - Não acessa nem expõe o sandbox privado que executa uma sessão ChatGPT.
 - Não concede acesso às CPUs ou ao runtime interno da OpenAI.
 - Não executa shell, scripts, URLs, comandos ou ferramentas arbitrárias recebidas pela fila.
-- Não chama **aurora.read_evidence** nesta versão.
+- **MCP_READ_EVIDENCE_METADATA** lê o README.md do projeto principal para calcular metadados, mas nunca publica seu conteúdo. A chamada ainda acessa o conteúdo local em memória no Termux.
 - Não há daemon, persistência automática, auto-replicação ou execução em background.
 - Este repositório é público: inbox e outbox também são públicos. **MCP_LIST_PROJECTS** publica os nomes allowlisted e o indicador de existência de cada projeto. Não use esta fila para dados privados, tokens, segredos ou conteúdo de evidências.
 - SHA-256 detecta alterações acidentais, mas **não é assinatura/autenticação**.
@@ -57,7 +58,7 @@ A flag autoriza somente o commit/push dos resultados presentes em outbox/; não 
 
 ## Formato e estados
 
-Veja **message.schema.json** e os exemplos em **inbox/**.
+Veja **message.schema.json** e os exemplos em **inbox/**. A ação de leitura é fixa; a fila não fornece caminho ou nome de ferramenta.
 
 - **NO_PENDING_REQUESTS**: nenhuma mensagem nova foi processada.
 - **LOCAL_RESULTS_READY**: resultado local criado; ainda não publicado.
