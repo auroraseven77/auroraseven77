@@ -1,16 +1,13 @@
 {
   "name": "@aurora/relay-agent",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
-  "description": "One-shot, allowlisted, read-only MCP relay with truthful capability catalog.",
-  "engines": {
-    "node": ">=22"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0"
-  },
+  "description": "One-shot, read-only MCP relay with symlink-safe file handling and explicit result publication.",
+  "engines": { "node": ">=22" },
+  "dependencies": { "@modelcontextprotocol/sdk": "1.30.0" },
   "scripts": {
-    "relay": "node relay.mjs"
+    "relay": "node relay.mjs",
+    "test:security": "node --test security.test.mjs"
   }
 }
