@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const BRANCH = "agent/aurora-relay";
 const RELAY_PATH = "agents/aurora-relay";
 const PROJECT_TOOL = "aurora.list_projects";
@@ -20,7 +20,7 @@ const ALLOWED_PROJECTS = Object.freeze([
   "auroraseven77-b13-repro",
   "auroraseven77-b13-energy"
 ]);
-const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY", "MCP_LIST_PROJECTS", "MCP_READ_EVIDENCE_METADATA"]);
+const ALLOWED_ACTIONS = new Set(["PING", "MCP_DISCOVERY", "MCP_LIST_PROJECTS", "MCP_READ_EVIDENCE_METADATA", "CAPABILITIES"]);
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -224,6 +224,33 @@ async function listMcpProjects() {
   }
 }
 
+function getCapabilities() {
+  return {
+    status: "CAPABILITIES_OK",
+    relay_version: VERSION,
+    generated_at: new Date().toISOString(),
+    actions: [
+      { name: "PING", safe: true, approval: false, implemented: true },
+      { name: "MCP_DISCOVERY", safe: true, approval: false, implemented: true },
+      { name: "MCP_LIST_PROJECTS", safe: true, approval: false, implemented: true },
+      { name: "MCP_READ_EVIDENCE_METADATA", safe: true, approval: false, implemented: true },
+      { name: "CAPABILITIES", safe: true, approval: false, implemented: true }
+    ],
+    deferred_actions: [
+      { name: "FS_READ", implemented: false },
+      { name: "FS_WRITE", implemented: false, approval: true },
+      { name: "FS_DELETE", implemented: false, approval: true },
+      { name: "TASK_CREATE", implemented: false, approval: true },
+      { name: "TASK_UPDATE", implemented: false, approval: true },
+      { name: "TASK_EXECUTE", implemented: false, approval: true }
+    ],
+    workspace: null,
+    projects_authorized: ALLOWED_PROJECTS.slice(),
+    execution_policy: "READ_ONLY",
+    approval_policy: "NO_MUTATING_ACTIONS_ENABLED"
+  };
+}
+
 async function main() {
   const repoArg = argValue("--repo");
   if (!repoArg) throw new Error("USAGE: node relay.mjs --repo /path/to/clone [--approve-publish]");
@@ -280,7 +307,7 @@ async function main() {
           ? error.message : "MCP_CONNECTION_FAILED";
         result = { status: "MCP_DISCOVERY_FAILED", error_code: code };
       }
-    } else if (message.action === "MCP_LIST_PROJECTS") {
+    } else if (message.action === "CAPABILITIES") {\n      result = getCapabilities();\n    } else if (message.action === "MCP_LIST_PROJECTS") 
       try {
         result = await listMcpProjects();
       } catch (error) {
