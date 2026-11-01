@@ -1,0 +1,5 @@
+{
+  "protocol": "aurora-relay/1",
+  "id": "read-projects-0002",
+  "action": "MCP_LIST_PROJECTS"
+}
