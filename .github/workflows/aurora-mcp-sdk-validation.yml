@@ -1,0 +1,51 @@
+name: Aurora MCP SDK validation matrix
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "validation/mcp-sdk-matrix/**"
+      - ".github/workflows/aurora-mcp-sdk-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-mcp-sdk-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sdk-matrix:
+    name: SDK 1.x real MCP integration matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout validation branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Confirm official npm registry
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config get registry
+          node --version
+          npm --version
+
+      - name: Acquire, verify and test exact SDK versions
+        env:
+          AURORA_MATRIX_WORK: ${{ runner.temp }}/aurora-sdk-matrix
+        run: bash validation/mcp-sdk-matrix/run-sdk-matrix.sh
+
+      - name: Upload per-version logs, lockfiles and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-mcp-sdk-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aurora-sdk-matrix/
+          if-no-files-found: warn
+          retention-days: 30
