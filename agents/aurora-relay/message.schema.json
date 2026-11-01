@@ -22,7 +22,8 @@
         "PING",
         "MCP_DISCOVERY",
         "MCP_LIST_PROJECTS",
-        "MCP_READ_EVIDENCE_METADATA"
+        "MCP_READ_EVIDENCE_METADATA",
+        "CAPABILITIES"
       ]
     },
     "created_at": {
