@@ -1,4 +1,4 @@
-# Aurora Relay Agent v0.3.0
+# Aurora Relay Agent v0.4.0
 
 Agente de retransmissão **one-shot**, controlado pelo usuário, para ligar pedidos publicados nesta branch a operações MCP locais, estritamente allowlisted.
 
@@ -14,6 +14,7 @@ Agente de retransmissão **one-shot**, controlado pelo usuário, para ligar pedi
 ## Ações permitidas
 
 - **PING**: teste do transporte GitHub-mailbox; não chama MCP.
+- **CAPABILITIES**: publica catálogo gerado pelo próprio código. `implemented: true` identifica somente ações efetivamente habilitadas. Ações de escrita e execução aparecem em `deferred_actions` com `implemented: false`; não são aceitas pelo dispatcher.
 - **MCP_DISCOVERY**: executa somente **initialize** e **tools/list**.
 - **MCP_LIST_PROJECTS**: verifica se **aurora.list_projects** está anunciada com schema estrito de objeto vazio, chama essa ferramenta fixa com **arguments: {}** e valida os seis registros autorizados. A saída contém apenas **name** e **exists**; caminhos locais e conteúdo de arquivos não são publicados.
 - **MCP_READ_EVIDENCE_METADATA**: chama exclusivamente **aurora.read_evidence** para **auroraseven77/README.md**, valida projeto, caminho, tamanho e SHA-256 calculado sobre os bytes UTF-8, e descarta o conteúdo. O outbox publica somente projeto, caminho, tamanho, hash e **content_returned: false**. Limite máximo de 48 KiB.
@@ -58,7 +59,7 @@ A flag autoriza somente o commit/push dos resultados presentes em outbox/; não 
 
 ## Formato e estados
 
-Veja **message.schema.json** e os exemplos em **inbox/**. A ação de leitura é fixa; a fila não fornece caminho ou nome de ferramenta.
+Veja **message.schema.json** e os exemplos em **inbox/**. A ação `CAPABILITIES` não habilita por si só as ações adiadas; a política atual continua `READ_ONLY`. A ação de leitura é fixa; a fila não fornece caminho ou nome de ferramenta.
 
 - **NO_PENDING_REQUESTS**: nenhuma mensagem nova foi processada.
 - **LOCAL_RESULTS_READY**: resultado local criado; ainda não publicado.
