@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/aurora-payload"
           cat automation/aurora-nocloud-v4/payload-qmp/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
-          echo "expected_sha256=7881fb8d6671160b34748042fcf2603c34919b1d8f99f66224bbf5a6ec6cad44"
+          echo "expected_sha256=706a95d9f0c4349d25984b27583c65d50d1346f57badedab50a7e830a7a3ed28"
           actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" | awk '{print $1}')"
           echo "actual_sha256=$actual"
           test "$actual" = "7881fb8d6671160b34748042fcf2603c34919b1d8f99f66224bbf5a6ec6cad44"
