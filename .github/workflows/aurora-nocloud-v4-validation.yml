@@ -55,11 +55,46 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            qemu-system-x86 qemu-utils cloud-image-utils e2fsprogs wget coreutils python3
+            qemu-system-x86 qemu-utils cloud-image-utils e2fsprogs wget coreutils python3 python3-yaml
           qemu-system-x86_64 --version
           qemu-system-x86_64 -accel help | grep -w tcg
           qemu-img --version
           cloud-localds --help >/dev/null
+
+      - name: Add importable allocator module alias to cloud-init
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/aurora-payload"
+          python3 - <<'PY'
+          from pathlib import Path
+          import copy
+          import yaml
+
+          path = Path(__import__("os").environ["RUNNER_TEMP"]) / "aurora-payload" / "aurora-kasan-cloud-init.yaml"
+          text = path.read_text(encoding="utf-8")
+          assert text.startswith("#cloud-config")
+          cfg = yaml.safe_load(text)
+          files = cfg["write_files"]
+          src = next((item for item in files if item.get("path") == "/usr/local/sbin/aurora-configure-subids.py"), None)
+          assert src is not None
+          assert src["content"].lstrip().startswith("#!/usr/bin/env python3")
+          alias_path = "/usr/local/sbin/aurora_configure_subids.py"
+          old = [item for item in files if item.get("path") == alias_path]
+          if old:
+              assert len(old) == 1 and old[0]["content"] == src["content"]
+          else:
+              alias = copy.deepcopy(src)
+              alias["path"] = alias_path
+              files.append(alias)
+          rendered = "#cloud-config\n" + yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True, width=1000)
+          check = yaml.safe_load(rendered)
+          aliases = [item for item in check["write_files"] if item.get("path") == alias_path]
+          assert len(aliases) == 1 and aliases[0]["content"] == src["content"]
+          path.write_text(rendered, encoding="utf-8")
+          print("importable_module_alias=PASS")
+          print("allocator_alias_sha256_matches=PASS")
+          PY
 
       - name: Execute Debian 13 GenericCloud NoCloud two-boot test
         id: vmtest
