@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: aurora-nocloud-v4-validation-${{ github.sha }}
@@ -27,15 +26,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/aurora-payload"
-          cat automation/aurora-nocloud-v4/payload-qmp/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
-          echo "expected_sha256=706a95d9f0c4349d25984b27583c65d50d1346f57badedab50a7e830a7a3ed28"
-          actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" | awk '{print $1}')"
+          cat automation/aurora-nocloud-v4/payload-v42/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-v42.tar.xz"
+          echo "expected_sha256=43f7987d172a62a38a23f20ec42cc8de8d6874bebefcbb4c8b7cb112b33a2ee3"
+          actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-v42.tar.xz" | awk '{print $1}')"
           echo "actual_sha256=$actual"
-          test "$actual" = "706a95d9f0c4349d25984b27583c65d50d1346f57badedab50a7e830a7a3ed28"
-          tar -tzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
-          tar -xzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" -C "$RUNNER_TEMP/aurora-payload"
+          test "$actual" = "43f7987d172a62a38a23f20ec42cc8de8d6874bebefcbb4c8b7cb112b33a2ee3"
+          xz -t "$RUNNER_TEMP/aurora-nocloud-v42.tar.xz"
+          tar -tJf "$RUNNER_TEMP/aurora-nocloud-v42.tar.xz"
+          tar -xJf "$RUNNER_TEMP/aurora-nocloud-v42.tar.xz" -C "$RUNNER_TEMP/aurora-payload"
           test -s "$RUNNER_TEMP/aurora-payload/aurora-kasan-cloud-init.yaml"
           test -s "$RUNNER_TEMP/aurora-payload/aurora-vm-nocloud-test.sh"
+          test -s "$RUNNER_TEMP/aurora-payload/verify_vm_evidence.py"
+          python3 -m py_compile "$RUNNER_TEMP/aurora-payload/verify_vm_evidence.py"
 
       - name: Confirm hosted x86_64 runner
         shell: bash
@@ -48,14 +50,19 @@ jobs:
           test "$(uname -m)" = x86_64
           df -h "$RUNNER_TEMP"
           id
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo "host_kvm=available"
+          else
+            echo "host_kvm=unavailable; runner will use QEMU TCG"
+          fi
 
-      - name: Install QEMU TCG and NoCloud host utilities
+      - name: Install QEMU with KVM detection and TCG fallback
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            qemu-system-x86 qemu-utils cloud-image-utils e2fsprogs wget coreutils python3 python3-yaml
+            qemu-system-x86 qemu-utils cloud-image-utils e2fsprogs wget coreutils python3 python3-yaml xz-utils
           qemu-system-x86_64 --version
           qemu-system-x86_64 -accel help | grep -w tcg
           qemu-img --version
@@ -106,6 +113,9 @@ jobs:
           set -euo pipefail
           ROOT="$RUNNER_TEMP/aurora-payload"
           export AURORA_VM_EVIDENCE_DIR="$RUNNER_TEMP/aurora-vm-evidence"
+          export AURORA_QEMU_RAM_MB=1024
+          export AURORA_QEMU_CPUS=1
+          export AURORA_QEMU_ACCEL=auto
           bash "$ROOT/aurora-vm-nocloud-test.sh"
 
       - name: Verify required guest evidence and create run manifest
@@ -132,10 +142,29 @@ jobs:
               fi
             done
           } > "$OUT/workflow-run-manifest.txt"
-          if [[ -f "$OUT/serial.log" ]]; then
-            sha256sum "$OUT/serial.log" > "$OUT/serial.log.sha256"
+          pending=0
+          missing=""
+          for name in boot-1.txt boot-2.txt serial.log host-run.txt qmp-reset.json workflow-run-manifest.txt; do
+            if [[ ! -s "$OUT/$name" ]]; then
+              pending=1
+              missing="$missing $name"
+            fi
+          done
+          if [[ "$pending" -eq 0 ]]; then
+            (cd "$OUT" && sha256sum boot-1.txt boot-2.txt serial.log host-run.txt qmp-reset.json workflow-run-manifest.txt > SHA256SUMS)
+            set +e
+            python3 "$RUNNER_TEMP/aurora-payload/verify_vm_evidence.py" "$OUT" > "$OUT/verification.json"
+            verify_rc=$?
+            set -e
+            echo "evidence_verifier_exit_code=$verify_rc"
+            cat "$OUT/verification.json"
+            if [[ "$verify_rc" -ne 0 ]]; then exit "$verify_rc"; fi
+          else
+            printf '{"status":"PENDING","classification":"EVIDENCE_INCOMPLETE","missing":"%s"}\n' "$missing" > "$OUT/verification.json"
+            echo "evidence_status=PENDING"
+            printf 'missing=%s\n' "$missing"
+            (cd "$OUT" && find . -maxdepth 1 -type f ! -name 'SHA256SUMS' ! -name 'SHA256SUMS.partial' -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.partial)
           fi
-          (cd "$OUT" && find . -maxdepth 1 -type f ! -name 'SHA256SUMS' -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
 
       - name: Upload VM evidence, including partial failure diagnostics
         if: always()
