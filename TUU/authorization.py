@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias
 
+from typing_extensions import TypeAliasType
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
@@ -12,10 +14,9 @@ if TYPE_CHECKING:
 
 
 JsonPrimitive: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = (
-    JsonPrimitive
-    | Mapping[str, "JsonValue"]
-    | tuple["JsonValue", ...]
+JsonValue = TypeAliasType(
+    "JsonValue",
+    JsonPrimitive | Mapping[str, "JsonValue"] | tuple["JsonValue", ...],
 )
 
 
