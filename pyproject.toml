@@ -9,6 +9,7 @@ description = "Teoria da Unidade Unificada core orchestration and invariant engi
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6,<3",
+    "typing-extensions>=4.6",
 ]
 
 [tool.setuptools.packages.find]
