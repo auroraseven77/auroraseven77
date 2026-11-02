@@ -1,0 +1,109 @@
+name: Aurora NoCloud VM validation v4
+
+on:
+  push:
+    branches:
+      - automation/aurora-nocloud-v4-validation-20261102
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: aurora-nocloud-v4-validation
+  cancel-in-progress: false
+
+jobs:
+  two-boot-nocloud:
+    name: Debian 13 amd64 — two real boots with NoCloud
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout isolated validation branch
+        uses: actions/checkout@v4
+
+      - name: Reassemble minimal guest payload and verify provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-payload"
+          cat automation/aurora-nocloud-v4/payload-min/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
+          echo "expected_sha256=69998a3771a497adfdf1c79381d96660deed440acb0bdf2a8cf5c81874a4cbba"
+          actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" | awk '{print $1}')"
+          echo "actual_sha256=$actual"
+          test "$actual" = "69998a3771a497adfdf1c79381d96660deed440acb0bdf2a8cf5c81874a4cbba"
+          tar -tzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
+          tar -xzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" -C "$RUNNER_TEMP/aurora-payload"
+          test -s "$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4/aurora-kasan-cloud-init.yaml"
+          test -s "$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4/aurora-vm-nocloud-test.sh"
+
+      - name: Confirm hosted x86_64 runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a
+          . /etc/os-release
+          printf 'runner_os=%s\nrunner_version=%s\n' "$ID" "$VERSION_ID"
+          test "$ID" = ubuntu
+          test "$(uname -m)" = x86_64
+          df -h "$RUNNER_TEMP"
+          id
+
+      - name: Install QEMU TCG and NoCloud host utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            qemu-system-x86 qemu-utils cloud-image-utils e2fsprogs wget coreutils python3
+          qemu-system-x86_64 --version
+          qemu-system-x86_64 -accel help | grep -w tcg
+          qemu-img --version
+          cloud-localds --help >/dev/null
+
+      - name: Execute Debian 13 GenericCloud NoCloud two-boot test
+        id: vmtest
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4"
+          export AURORA_VM_EVIDENCE_DIR="$RUNNER_TEMP/aurora-vm-evidence"
+          bash "$ROOT/aurora-vm-nocloud-test.sh"
+
+      - name: Verify required guest evidence and create run manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/aurora-vm-evidence"
+          mkdir -p "$OUT"
+          {
+            echo "workflow_run_id=$GITHUB_RUN_ID"
+            echo "workflow_run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "ref=$GITHUB_REF"
+            echo "runner_arch=$(uname -m)"
+            echo "runner_os=$( . /etc/os-release; echo "$PRETTY_NAME" )"
+            echo "collected_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            for report in "$OUT/boot-1.txt" "$OUT/boot-2.txt"; do
+              if [[ -s "$report" ]]; then
+                echo "----- $(basename "$report") -----"
+                cat "$report"
+              else
+                echo "MISSING: $(basename "$report")"
+              fi
+            done
+          } > "$OUT/workflow-run-manifest.txt"
+          if [[ -f "$OUT/serial.log" ]]; then
+            sha256sum "$OUT/serial.log" > "$OUT/serial.log.sha256"
+          fi
+          (cd "$OUT" && find . -maxdepth 1 -type f ! -name 'SHA256SUMS' -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
+
+      - name: Upload VM evidence, including partial failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-nocloud-vm-evidence
+          path: ${{ runner.temp }}/aurora-vm-evidence/
+          if-no-files-found: warn
+          retention-days: 14
