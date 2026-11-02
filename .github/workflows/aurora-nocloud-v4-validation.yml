@@ -34,8 +34,8 @@ jobs:
           test "$actual" = "69998a3771a497adfdf1c79381d96660deed440acb0bdf2a8cf5c81874a4cbba"
           tar -tzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
           tar -xzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" -C "$RUNNER_TEMP/aurora-payload"
-          test -s "$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4/aurora-kasan-cloud-init.yaml"
-          test -s "$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4/aurora-vm-nocloud-test.sh"
+          test -s "$RUNNER_TEMP/aurora-payload/aurora-kasan-cloud-init.yaml"
+          test -s "$RUNNER_TEMP/aurora-payload/aurora-vm-nocloud-test.sh"
 
       - name: Confirm hosted x86_64 runner
         shell: bash
@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="$RUNNER_TEMP/aurora-payload/aurora-subid-allocator-v4"
+          ROOT="$RUNNER_TEMP/aurora-payload"
           export AURORA_VM_EVIDENCE_DIR="$RUNNER_TEMP/aurora-vm-evidence"
           bash "$ROOT/aurora-vm-nocloud-test.sh"
 
