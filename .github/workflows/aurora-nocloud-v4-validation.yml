@@ -31,7 +31,7 @@ jobs:
           echo "expected_sha256=706a95d9f0c4349d25984b27583c65d50d1346f57badedab50a7e830a7a3ed28"
           actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" | awk '{print $1}')"
           echo "actual_sha256=$actual"
-          test "$actual" = "7881fb8d6671160b34748042fcf2603c34919b1d8f99f66224bbf5a6ec6cad44"
+          test "$actual" = "706a95d9f0c4349d25984b27583c65d50d1346f57badedab50a7e830a7a3ed28"
           tar -tzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
           tar -xzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" -C "$RUNNER_TEMP/aurora-payload"
           test -s "$RUNNER_TEMP/aurora-payload/aurora-kasan-cloud-init.yaml"
