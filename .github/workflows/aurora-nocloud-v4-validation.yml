@@ -27,11 +27,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/aurora-payload"
-          cat automation/aurora-nocloud-v4/payload-min/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
-          echo "expected_sha256=69998a3771a497adfdf1c79381d96660deed440acb0bdf2a8cf5c81874a4cbba"
+          cat automation/aurora-nocloud-v4/payload-qmp/part-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
+          echo "expected_sha256=7881fb8d6671160b34748042fcf2603c34919b1d8f99f66224bbf5a6ec6cad44"
           actual="$(sha256sum "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" | awk '{print $1}')"
           echo "actual_sha256=$actual"
-          test "$actual" = "69998a3771a497adfdf1c79381d96660deed440acb0bdf2a8cf5c81874a4cbba"
+          test "$actual" = "7881fb8d6671160b34748042fcf2603c34919b1d8f99f66224bbf5a6ec6cad44"
           tar -tzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz"
           tar -xzf "$RUNNER_TEMP/aurora-nocloud-min.tar.gz" -C "$RUNNER_TEMP/aurora-payload"
           test -s "$RUNNER_TEMP/aurora-payload/aurora-kasan-cloud-init.yaml"
@@ -91,6 +91,9 @@ jobs:
           check = yaml.safe_load(rendered)
           aliases = [item for item in check["write_files"] if item.get("path") == alias_path]
           assert len(aliases) == 1 and aliases[0]["content"] == src["content"]
+          capture = next(item for item in check["write_files"] if item.get("path") == "/usr/local/sbin/aurora-capture-subid-evidence.sh")
+          assert "AURORA_VM_WAITING_FOR_HOST_QMP_RESET" in capture["content"]
+          assert "systemctl reboot --no-block" not in capture["content"]
           path.write_text(rendered, encoding="utf-8")
           print("importable_module_alias=PASS")
           print("allocator_alias_sha256_matches=PASS")
