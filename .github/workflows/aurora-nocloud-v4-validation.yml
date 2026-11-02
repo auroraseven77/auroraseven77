@@ -10,7 +10,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: aurora-nocloud-v4-validation
+  group: aurora-nocloud-v4-validation-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
