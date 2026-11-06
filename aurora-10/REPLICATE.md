@@ -13,7 +13,7 @@ Se já houver clone:
 ## Registrar revisão e hashes
     git rev-parse HEAD
     git status --short
-    sha256sum aurora-10/supervisor.py aurora-10/README.md aurora-10/PILOT-POLICY.md aurora-10/REPLICATE.md
+    sha256sum aurora-10/supervisor.py aurora-10/README.md aurora-10/PILOT-POLICY.md aurora-10/ACCESS-MATRIX.md aurora-10/REPLICATE.md
 
 ## Teste inicial
     python3 --version
