@@ -44,6 +44,11 @@ Uma coleta:
 Piloto padrão:
     python3 aurora-10/supervisor.py --duration-hours 24 --interval-seconds 300
 
+Outros arquivos e repositórios locais (opções repetíveis):
+    python3 aurora-10/supervisor.py --watch-file /caminho/arquivo-a --watch-file /caminho/arquivo-b --repo /caminho/repo-a --repo /caminho/repo-b
+
+O agente de integridade calcula SHA-256 dos arquivos indicados e lê somente metadados HEAD/ref dos repositórios; não executa Git, não faz fetch/checkout e não percorre a árvore.
+
 Outro caminho de código-fonte:
     python3 aurora-10/supervisor.py --source /opt/terminal-server/openai/server.py
 
