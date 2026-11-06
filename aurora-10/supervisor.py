@@ -93,8 +93,8 @@ def agent_health(_: dict[str, Any]) -> dict[str, Any]:
     request = urllib.request.Request(url, method="GET", headers={"User-Agent": "Aurora-10-readonly/0.1"})
     try:
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-            body = response.read(4096).decode("utf-8", "replace")
-            return {"url": url, "method": "GET", "http_status": response.status, "body_excerpt": body}
+            return {"url": url, "method": "GET", "http_status": response.status,
+                    "content_length": response.headers.get("Content-Length")}
     except urllib.error.HTTPError as exc:
         return {"url": url, "method": "GET", "http_status": exc.code, "error": "http_error"}
     except Exception as exc:
