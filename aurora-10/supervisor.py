@@ -192,15 +192,58 @@ def agent_resource(_: dict[str, Any]) -> dict[str, Any]:
             "meminfo_error": mem_err, "proc_stat_available": stat is not None, "proc_stat_error": stat_err}
 
 
-def agent_integrity(ctx: dict[str, Any]) -> dict[str, Any]:
+def repo_head_metadata(repo: Path) -> dict[str, Any]:
+    git_entry = repo / ".git"
     try:
-        data = ctx["source"].read_bytes()
+        if git_entry.is_dir():
+            git_dir = git_entry
+        elif git_entry.is_file():
+            pointer, error = read_text(git_entry, 4096)
+            if error or not pointer.startswith("gitdir:"):
+                return {"repo": str(repo), "available": False, "reason": error or "invalid_gitdir_pointer"}
+            target = pointer.split(":", 1)[1].strip()
+            git_dir = (repo / target).resolve() if not Path(target).is_absolute() else Path(target)
+        else:
+            return {"repo": str(repo), "available": False, "reason": "git_metadata_not_found"}
+        head_text, head_error = read_text(git_dir / "HEAD", 4096)
+        if head_error:
+            return {"repo": str(repo), "available": False, "reason": head_error}
+        head = head_text.strip()
+        if not head.startswith("ref: "):
+            return {"repo": str(repo), "available": True, "head": head, "detached": True}
+        ref = head[5:].strip()
+        if not ref.startswith("refs/") or ".." in Path(ref).parts:
+            return {"repo": str(repo), "available": False, "reason": "unsafe_or_unrecognized_head_ref"}
+        ref_text, ref_error = read_text(git_dir / ref, 256)
+        if ref_error:
+            packed, packed_error = read_text(git_dir / "packed-refs", 1_000_000)
+            if packed_error:
+                return {"repo": str(repo), "available": True, "head_ref": ref, "head_sha": None,
+                        "ref_reason": ref_error, "packed_refs_reason": packed_error}
+            ref_text = next((line.split(" ", 1)[0] for line in packed.splitlines()
+                             if line and not line.startswith(("#", "^")) and line.endswith(" " + ref)), None)
+        return {"repo": str(repo), "available": True, "head_ref": ref,
+                "head_sha": ref_text.strip() if ref_text else None}
+    except Exception as exc:
+        return {"repo": str(repo), "available": False, "reason": f"{type(exc).__name__}:{exc}"}
+
+
+def hash_file(path: Path) -> dict[str, Any]:
+    try:
+        data = path.read_bytes()
         if len(data) > MAX_SOURCE_BYTES:
-            return {"path": str(ctx["source"]), "available": False, "reason": "size_limit_exceeded"}
-        return {"path": str(ctx["source"]), "available": True, "size_bytes": len(data),
+            return {"path": str(path), "available": False, "reason": "size_limit_exceeded"}
+        return {"path": str(path), "available": True, "size_bytes": len(data),
                 "sha256": hashlib.sha256(data).hexdigest()}
     except Exception as exc:
-        return {"path": str(ctx["source"]), "available": False, "reason": f"{type(exc).__name__}:{exc}"}
+        return {"path": str(path), "available": False, "reason": f"{type(exc).__name__}:{exc}"}
+
+
+def agent_integrity(ctx: dict[str, Any]) -> dict[str, Any]:
+    files = [ctx["source"], *ctx["watch_files"]]
+    return {"files": [hash_file(path) for path in files],
+            "repositories": [repo_head_metadata(path) for path in ctx["repos"]],
+            "note": "repository metadata only; no git command, checkout, fetch, or tree traversal"}
 
 
 def agent_network(_: dict[str, Any]) -> dict[str, Any]:
@@ -268,6 +311,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="local output directory")
     parser.add_argument("--duration-hours", type=float, default=24.0)
     parser.add_argument("--interval-seconds", type=int, default=300)
+    parser.add_argument("--watch-file", action="append", type=Path, default=[],
+                        help="additional file to SHA-256; may be repeated")
+    parser.add_argument("--repo", action="append", type=Path, default=[],
+                        help="local Git repository metadata to observe; may be repeated")
     parser.add_argument("--once", action="store_true", help="run one cycle and exit")
     args = parser.parse_args()
     if args.duration_hours <= 0 or args.duration_hours > MAX_DURATION_HOURS:
@@ -285,7 +332,9 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
     run_id = str(uuid.uuid4())
     deadline = time.monotonic() if args.once else time.monotonic() + args.duration_hours * 3600
-    ctx = {"source": args.source.resolve(), "output": output}
+    ctx = {"source": args.source.resolve(), "output": output,
+           "watch_files": [p.resolve() for p in args.watch_file],
+           "repos": [p.resolve() for p in args.repo]}
     cycle = 0
     try:
         while True:
