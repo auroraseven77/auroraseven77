@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import re
 import socket
 import time
-import urllib.error
-import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,17 +88,17 @@ def source_text(source: Path) -> dict[str, Any]:
 
 
 def agent_health(_: dict[str, Any]) -> dict[str, Any]:
-    url = "http://127.0.0.1:1384/healthcheck"
-    request = urllib.request.Request(url, method="GET", headers={"User-Agent": "Aurora-10-readonly/0.1"})
+    connection = http.client.HTTPConnection("127.0.0.1", 1384, timeout=HTTP_TIMEOUT_SECONDS)
     try:
-        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-            return {"url": url, "method": "GET", "http_status": response.status,
-                    "content_length": response.headers.get("Content-Length")}
-    except urllib.error.HTTPError as exc:
-        return {"url": url, "method": "GET", "http_status": exc.code, "error": "http_error"}
+        connection.request("GET", "/healthcheck", headers={"User-Agent": "Aurora-10-readonly/0.1"})
+        response = connection.getresponse()
+        return {"url": "http://127.0.0.1:1384/healthcheck", "method": "GET",
+                "http_status": response.status, "content_length": response.getheader("Content-Length")}
     except Exception as exc:
-        return {"url": url, "method": "GET", "available": False, "reason": f"{type(exc).__name__}:{exc}"}
-
+        return {"url": "http://127.0.0.1:1384/healthcheck", "method": "GET",
+                "available": False, "reason": f"{type(exc).__name__}:{exc}"}
+    finally:
+        connection.close()
 
 def agent_spec(ctx: dict[str, Any]) -> dict[str, Any]:
     src = source_text(ctx["source"])
