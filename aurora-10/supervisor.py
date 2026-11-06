@@ -146,12 +146,14 @@ def agent_process(_: dict[str, Any]) -> dict[str, Any]:
     for entry in entries:
         if not entry.name.isdigit():
             continue
+        cmd, cmd_err = read_text(entry / "cmdline", 8192)
+        if cmd_err or not cmd:
+            continue
+        searchable = cmd.replace("\x00", " ").lower()
+        if "terminal-server" not in searchable and "server.py" not in searchable:
+            continue
         comm, comm_err = read_text(entry / "comm", 256)
-        if comm_err or not comm:
-            continue
-        process_name = comm.strip()
-        if "terminal-server" not in process_name.lower() and process_name.lower() not in ("python", "python3"):
-            continue
+        process_name = comm.strip() if comm and not comm_err else "unavailable"
         status, status_err = read_text(entry / "status", 32768)
         stat, stat_err = read_text(entry / "stat", 8192)
         selected = {}
