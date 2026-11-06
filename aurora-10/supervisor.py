@@ -68,7 +68,13 @@ def parse_proc_tcp(path: Path) -> dict[str, Any]:
         try:
             port = int(port_hex, 16)
             raw = bytes.fromhex(addr_hex)
-            address = socket.inet_ntop(socket.AF_INET, raw[::-1])
+            if len(raw) == 4:
+                address = socket.inet_ntop(socket.AF_INET, raw[::-1])
+            elif len(raw) == 16:
+                normalized = b"".join(raw[i:i + 4][::-1] for i in range(0, 16, 4))
+                address = socket.inet_ntop(socket.AF_INET6, normalized)
+            else:
+                address = "unparsed"
         except Exception:
             address, port = "unparsed", -1
         listeners.append({"address": address, "port": port, "state": "LISTEN"})
@@ -140,11 +146,11 @@ def agent_process(_: dict[str, Any]) -> dict[str, Any]:
     for entry in entries:
         if not entry.name.isdigit():
             continue
-        cmd, err = read_text(entry / "cmdline", 8192)
-        if err or not cmd:
+        comm, comm_err = read_text(entry / "comm", 256)
+        if comm_err or not comm:
             continue
-        display = cmd.replace("\x00", " ").strip()
-        if "terminal-server" not in display.lower() and "server.py" not in display.lower():
+        process_name = comm.strip()
+        if "terminal-server" not in process_name.lower() and process_name.lower() not in ("python", "python3"):
             continue
         status, status_err = read_text(entry / "status", 32768)
         stat, stat_err = read_text(entry / "stat", 8192)
@@ -153,7 +159,7 @@ def agent_process(_: dict[str, Any]) -> dict[str, Any]:
             for line in status.splitlines():
                 if line.startswith(("Name:", "Uid:", "Gid:", "PPid:", "State:")):
                     selected[line.split(":", 1)[0]] = line.split(":", 1)[1].strip()
-        matches.append({"pid": int(entry.name), "cmdline": display[:512], "status_fields": selected,
+        matches.append({"pid": int(entry.name), "comm": process_name, "status_fields": selected,
                         "status_read_error": status_err, "stat_available": stat is not None,
                         "stat_read_error": stat_err})
     return {"matches": matches, "note": "proc visibility is permission- and namespace-dependent; no signal is sent"}
