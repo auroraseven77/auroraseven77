@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - ops/datadog-agent7-debian-amd64-handoff-20261113
+      - fix/datadog-agent7-version-epoch
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
           gpg --dearmor < bundle/keys/DATADOG_APT_KEY_CURRENT.public | sudo tee /usr/share/keyrings/datadog-archive-keyring.gpg >/dev/null
           sudo chmod 0644 /usr/share/keyrings/datadog-archive-keyring.gpg
           echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/datadog-archive-keyring.gpg] https://apt.datadoghq.com stable 7' | sudo tee /etc/apt/sources.list.d/datadog.list >/dev/null
-          printf 'Datadog APT signing key fingerprint: %s\n' "$FPR" > bundle/keys/verified-fingerprint.txt
+          printf 'Datadog APT signing key fingerprint: %s\\n' "$FPR" > bundle/keys/verified-fingerprint.txt
       - name: Authenticate repository metadata and download Agent packages
         shell: bash
         run: |
@@ -46,7 +46,8 @@ jobs:
           apt-cache policy datadog-agent | tee bundle/repository/apt-policy.txt
           CANDIDATE="$(apt-cache policy datadog-agent | awk '/Candidate:/{print $2; exit}')"
           test -n "$CANDIDATE"
-          case "$CANDIDATE" in 7.*) ;; *) echo "Candidate is not Agent 7: $CANDIDATE" >&2; exit 1 ;; esac
+          CANDIDATE_VERSION="${CANDIDATE#*:}"
+          case "$CANDIDATE_VERSION" in 7.*) ;; *) echo "Candidate is not Agent 7: $CANDIDATE" >&2; exit 1 ;; esac
           cd bundle/packages
           apt-get download "datadog-agent:amd64=$CANDIDATE" datadog-signing-keys
           cd ../..
@@ -64,8 +65,9 @@ jobs:
           debsig-verify "$AGENT_DEB" | tee bundle/repository/debsig-verify.txt
           dpkg-deb -f "$AGENT_DEB" Package Version Architecture Depends | tee bundle/repository/package-control.txt
           PKG_VERSION="$(dpkg-deb -f "$AGENT_DEB" Version)"
+          PKG_VERSION_NO_EPOCH="${PKG_VERSION#*:}"
           PKG_ARCH="$(dpkg-deb -f "$AGENT_DEB" Architecture)"
-          case "$PKG_VERSION" in 7.*) ;; *) echo "Not Agent 7: $PKG_VERSION" >&2; exit 1 ;; esac
+          case "$PKG_VERSION_NO_EPOCH" in 7.*) ;; *) echo "Not Agent 7: $PKG_VERSION" >&2; exit 1 ;; esac
           test "$PKG_ARCH" = amd64
           {
             echo "repository=https://apt.datadoghq.com"
