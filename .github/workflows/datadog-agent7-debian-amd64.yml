@@ -2,6 +2,9 @@ name: Prepare official Datadog Agent 7 (Debian AMD64)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ops/datadog-agent7-debian-amd64-handoff-20261113
 
 permissions:
   contents: read
