@@ -1,0 +1,85 @@
+name: Prepare official Datadog Agent 7 (Debian AMD64)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Prepare tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg apt-utils debsig-verify dpkg-dev
+      - name: Fetch official key and configure signed APT source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/keys bundle/repository bundle/packages
+          curl --fail --show-error --silent --location \
+            https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public \
+            -o bundle/keys/DATADOG_APT_KEY_CURRENT.public
+          gpg --show-keys --with-colons bundle/keys/DATADOG_APT_KEY_CURRENT.public > bundle/keys/key-details.txt
+          FPR="$(awk -F: '$1=="fpr"{print $10; exit}' bundle/keys/key-details.txt)"
+          case "$FPR" in
+            D18886567EABAD8B2D2526900D826EB906462314|5F1E256061D813B125E156E8E6266D4AC0962C7D|D75CEA17048B9ACBF186794B32637D44F14F620E|A2923DFF56EDA6E76E55E492D3A80E30382E94DE) ;;
+            *) echo "Untrusted/unrecognized Datadog APT key fingerprint: $FPR" >&2; exit 1 ;;
+          esac
+          gpg --dearmor < bundle/keys/DATADOG_APT_KEY_CURRENT.public | sudo tee /usr/share/keyrings/datadog-archive-keyring.gpg >/dev/null
+          sudo chmod 0644 /usr/share/keyrings/datadog-archive-keyring.gpg
+          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/datadog-archive-keyring.gpg] https://apt.datadoghq.com stable 7' | sudo tee /etc/apt/sources.list.d/datadog.list >/dev/null
+          printf 'Datadog APT signing key fingerprint: %s\n' "$FPR" > bundle/keys/verified-fingerprint.txt
+      - name: Authenticate repository metadata and download Agent packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          apt-cache policy datadog-agent | tee bundle/repository/apt-policy.txt
+          CANDIDATE="$(apt-cache policy datadog-agent | awk '/Candidate:/{print $2; exit}')"
+          test -n "$CANDIDATE"
+          case "$CANDIDATE" in 7.*) ;; *) echo "Candidate is not Agent 7: $CANDIDATE" >&2; exit 1 ;; esac
+          cd bundle/packages
+          apt-get download "datadog-agent:amd64=$CANDIDATE" datadog-signing-keys
+          cd ../..
+          cp /var/lib/apt/lists/*apt.datadoghq.com*InRelease bundle/repository/ 2>/dev/null || true
+          cp /var/lib/apt/lists/*apt.datadoghq.com*Packages* bundle/repository/ 2>/dev/null || true
+          test -n "$(find bundle/packages -maxdepth 1 -name 'datadog-agent_*_amd64.deb' -print -quit)"
+          test -n "$(find bundle/packages -maxdepth 1 -name 'datadog-signing-keys_*.deb' -print -quit)"
+      - name: Verify embedded DEB signature and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY_DEB="$(find bundle/packages -maxdepth 1 -name 'datadog-signing-keys_*.deb' -print -quit)"
+          AGENT_DEB="$(find bundle/packages -maxdepth 1 -name 'datadog-agent_*_amd64.deb' -print -quit)"
+          sudo dpkg -i "$KEY_DEB"
+          debsig-verify "$AGENT_DEB" | tee bundle/repository/debsig-verify.txt
+          dpkg-deb -f "$AGENT_DEB" Package Version Architecture Depends | tee bundle/repository/package-control.txt
+          PKG_VERSION="$(dpkg-deb -f "$AGENT_DEB" Version)"
+          PKG_ARCH="$(dpkg-deb -f "$AGENT_DEB" Architecture)"
+          case "$PKG_VERSION" in 7.*) ;; *) echo "Not Agent 7: $PKG_VERSION" >&2; exit 1 ;; esac
+          test "$PKG_ARCH" = amd64
+          {
+            echo "repository=https://apt.datadoghq.com"
+            echo "suite=stable"
+            echo "component=7"
+            echo "package=datadog-agent"
+            echo "version=$PKG_VERSION"
+            echo "architecture=$PKG_ARCH"
+            echo "repository_metadata=apt-get update succeeded with signed-by keyring"
+            echo "embedded_deb_signature=debsig-verify succeeded"
+            echo "built_at_utc=$(date -u +%FT%TZ)"
+          } > bundle/MANIFEST.txt
+          (cd bundle && sha256sum keys/* repository/* packages/* > SHA256SUMS)
+      - name: Upload single handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: datadog-agent7-debian13-amd64-handoff
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 14
