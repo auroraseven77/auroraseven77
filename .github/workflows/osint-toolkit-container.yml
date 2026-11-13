@@ -1,0 +1,21 @@
+name: OSINT Toolkit container build (no publish)
+
+on:
+  pull_request:
+    paths:
+      - "osint-toolkit/**"
+      - ".github/workflows/osint-toolkit-container.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build local container image
+        run: docker build --tag aurora-osint-toolkit:test --file osint-toolkit/Dockerfile osint-toolkit
+      - name: Verify default command is help-only and network disabled
+        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true aurora-osint-toolkit:test --help
